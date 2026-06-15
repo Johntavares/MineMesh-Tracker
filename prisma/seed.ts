@@ -95,10 +95,8 @@ async function main() {
   })
 
   // 4. Create default Repeaters
-  const r1 = await prisma.repeater.upsert({
-    where: { code: 'RPT-001' },
-    update: {},
-    create: {
+  const repeatersData = [
+    {
       name: 'Repetidora Central',
       code: 'RPT-001',
       model: 'Rajante',
@@ -107,29 +105,114 @@ async function main() {
       longitude: -50.535004099999995,
       altitude: 850.0,
       range: 250,
-      mineId: mine.id,
-      updatedById: admin.id,
     },
-  })
-
-  const r2 = await prisma.repeater.upsert({
-    where: { code: 'RPT-002' },
-    update: {},
-    create: {
+    {
       name: 'Repetidora Norte',
       code: 'RPT-002',
       model: 'JR3',
-      status: 'MAINTENANCE',
-      latitude: -5.783000,
-      longitude: -50.530000,
+      status: 'ONLINE',
+      latitude: -5.781965,
+      longitude: -50.527618,
       altitude: 875.0,
-      range: 120,
-      mineId: mine.id,
-      updatedById: admin.id,
+      range: 180,
     },
-  })
+    {
+      name: 'Repetidora Sul',
+      code: 'RPT-003',
+      model: 'JR3',
+      status: 'ONLINE',
+      latitude: -5.786971,
+      longitude: -50.532597,
+      altitude: 860.0,
+      range: 150,
+    },
+    {
+      name: 'Repetidora Leste',
+      code: 'RPT-004',
+      model: 'Rajante',
+      status: 'ONLINE',
+      latitude: -5.782530,
+      longitude: -50.523015,
+      altitude: 865.0,
+      range: 160,
+    },
+    {
+      name: 'Repetidora Oeste',
+      code: 'RPT-005',
+      model: 'Rajante',
+      status: 'ONLINE',
+      latitude: -5.785013,
+      longitude: -50.537832,
+      altitude: 855.0,
+      range: 170,
+    },
+    {
+      name: 'Repetidora Nordeste',
+      code: 'RPT-006',
+      model: 'JR3',
+      status: 'MAINTENANCE',
+      latitude: -5.777785,
+      longitude: -50.528797,
+      altitude: 870.0,
+      range: 140,
+    },
+    {
+      name: 'Repetidora Noroeste',
+      code: 'RPT-007',
+      model: 'JR3',
+      status: 'ONLINE',
+      latitude: -5.780591,
+      longitude: -50.534957,
+      altitude: 868.0,
+      range: 130,
+    },
+    {
+      name: 'Repetidora Sudeste',
+      code: 'RPT-008',
+      model: 'Rajante',
+      status: 'ONLINE',
+      latitude: -5.789898,
+      longitude: -50.524700,
+      altitude: 848.0,
+      range: 190,
+    },
+    {
+      name: 'Repetidora Sudoeste',
+      code: 'RPT-009',
+      model: 'Rajante',
+      status: 'OFFLINE',
+      latitude: -5.789151,
+      longitude: -50.522642,
+      altitude: 845.0,
+      range: 120,
+    },
+    {
+      name: 'Repetidora Centro-Leste',
+      code: 'RPT-010',
+      model: 'JR3',
+      status: 'ONLINE',
+      latitude: -5.786123,
+      longitude: -50.524593,
+      altitude: 858.0,
+      range: 150,
+    }
+  ]
 
-  console.log('Seeding completed successfully:', { admin, mine, r1, r2 })
+  const createdRepeaters = []
+  for (const rep of repeatersData) {
+    const created = await prisma.repeater.upsert({
+      where: { code: rep.code },
+      update: {},
+      create: {
+        ...rep,
+        mineId: mine.id,
+        updatedById: admin.id,
+      }
+    })
+    createdRepeaters.push(created)
+  }
+
+  console.log('Seeding completed successfully:', { admin, mine, createdRepeaters })
 }
 
 main()

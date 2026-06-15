@@ -1411,29 +1411,27 @@ export default function MineMap({
             )}
 
             {/* HIGHLIGHTED CRITICAL ZONE OUTLINE (Layer 7 - Top) */}
-            {showCriticalZones && highlightedZoneId !== null && showGrid && (
-              currentGridCells.map((cell, idx) => {
-                const isHighlighted = currentStats.clusters.find(cl => cl.id === highlightedZoneId)?.cells.some(c => c.i === cell.i && c.j === cell.j)
-                if (!isHighlighted) return null
-                return (
-                  <Polygon
-                    key={`highlight-outline-${idx}`}
-                    positions={[
-                      cell.bounds[0],
-                      [cell.bounds[0][0], cell.bounds[1][1]],
-                      cell.bounds[1],
-                      [cell.bounds[1][0], cell.bounds[0][1]]
-                    ]}
-                    pathOptions={{
-                      stroke: true,
-                      color: '#DC2626',
-                      weight: 2.5,
-                      fillOpacity: 0
-                    }}
-                  />
-                )
-              })
-            )}
+            {showCriticalZones && highlightedZoneId !== null && showGrid && (() => {
+              const activeCluster = currentStats.clusters.find(cl => cl.id === highlightedZoneId)
+              if (!activeCluster) return null
+              const positions = activeCluster.cells.map(cell => [
+                cell.bounds[0],
+                [cell.bounds[0][0], cell.bounds[1][1]],
+                cell.bounds[1],
+                [cell.bounds[1][0], cell.bounds[0][1]]
+              ] as [number, number][])
+              return (
+                <Polygon
+                  positions={positions as any}
+                  pathOptions={{
+                    stroke: true,
+                    color: '#DC2626',
+                    weight: 2.5,
+                    fillOpacity: 0
+                  }}
+                />
+              )
+            })()}
 
           </MapContainer>
 
