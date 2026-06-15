@@ -1,0 +1,24 @@
+▲ Next.js 16.2.7 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.150:3000
+- Environments: .env
+✓ Ready in 7.2s
+
+ GET /pt-BR/map 200 in 4.3s (next.js: 2.6s, proxy.ts: 869ms, generate-params: 2.2s, application-code: 768ms)
+ GET /api/auth/session 200 in 7.8s (next.js: 7.7s, application-code: 96ms)
+ GET /api/auth/session 200 in 129ms (next.js: 29ms, application-code: 100ms)
+ GET /api/auth/session 200 in 112ms (next.js: 46ms, application-code: 66ms)
+ GET /api/auth/session 200 in 84ms (next.js: 33ms, application-code: 51ms)
+ GET /api/auth/session 200 in 170ms (next.js: 91ms, application-code: 79ms)
+ GET /api/auth/session 200 in 194ms (next.js: 56ms, application-code: 138ms)
+ GET /api/auth/session 200 in 225ms (next.js: 113ms, application-code: 112ms)
+ GET /api/auth/session 200 in 906ms (next.js: 377ms, application-code: 529ms)
+ GET /api/auth/session 200 in 116ms (next.js: 53ms, application-code: 64ms)
+ GET /api/auth/session 200 in 94ms (next.js: 36ms, application-code: 57ms)
+ GET /api/auth/session 200 in 90ms (next.js: 38ms, application-code: 52ms)
+ GET /api/auth/session 200 in 1184ms (next.js: 854ms, application-code: 330ms)
+ GET /api/auth/session 200 in 1407ms (next.js: 553ms, application-code: 854ms)
+ GET /api/auth/session 200 in 366ms (next.js: 196ms, application-code: 170ms)
+ GET /api/auth/session 200 in 511ms (next.js: 170ms, application-code: 341ms)
+ GET /api/auth/session 200 in 85ms (next.js: 22ms, application-code: 63ms)
+ GET /api/auth/session 200 in 745ms (next.js: 306ms, application-code: 439ms)
