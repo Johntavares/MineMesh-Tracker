@@ -1091,7 +1091,7 @@ export default function MineMap({
             <ScaleControl position="bottomleft" imperial={false} />
             <MapAutoFitter
               boundaryCoords={boundaryCoordsForFitter}
-              imageBounds={correctedOrtofotoBounds}
+              imageBounds={ortofotoBounds}
               center={center}
               defaultZoom={zoom}
             />
@@ -1100,10 +1100,10 @@ export default function MineMap({
             <HeatmapZoomHandler setHeatRadius={setCurrentHeatRadius} baseRadius={liveHeatRadius} defaultZoom={zoom} />
 
             {/* Mine Image Overlay (if calibrated and checked) */}
-            {mapConfig && mapConfig.isCalibrated && correctedOrtofotoBounds && showOrtofoto && (
+            {mapConfig && mapConfig.isCalibrated && ortofotoBounds && showOrtofoto && (
               <ImageOverlay
                 url={mapConfig.imageUrl}
-                bounds={correctedOrtofotoBounds as L.LatLngBoundsExpression}
+                bounds={ortofotoBounds as L.LatLngBoundsExpression}
                 opacity={ortofotoOpacity}
                 className="ortofoto-layer-overlay"
               />
