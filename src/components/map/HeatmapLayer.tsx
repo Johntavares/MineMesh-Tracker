@@ -36,8 +36,9 @@ export function HeatmapLayer({
   const map = useMap()
   const heatRef = useRef<L.HeatLayer | null>(null)
 
-  // Serialize gradient so useEffect detects changes
+  // Serialize gradient and points so useEffect detects changes
   const gradientKey = JSON.stringify(gradient)
+  const pointsKey = JSON.stringify(points)
 
   useEffect(() => {
     if (!map) return
@@ -48,10 +49,11 @@ export function HeatmapLayer({
       heatRef.current = null
     }
 
-    if (points.length === 0) return
+    const parsedPoints = JSON.parse(pointsKey)
+    if (parsedPoints.length === 0) return
 
     // @ts-ignore - leaflet.heat extends L
-    const heatLayer = L.heatLayer(points, {
+    const heatLayer = L.heatLayer(parsedPoints, {
       radius,
       blur,
       maxZoom,
@@ -70,7 +72,7 @@ export function HeatmapLayer({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, points, radius, blur, maxZoom, max, minOpacity, gradientKey])
+  }, [map, pointsKey, radius, blur, maxZoom, max, minOpacity, gradientKey])
 
   return null
 }

@@ -34,11 +34,19 @@ async function main() {
       centerLat: -5.789570417860321,
       centerLng: -50.535004099999995,
       defaultZoom: 14,
-      imageBounds: undefined,
-      boundaryCoordinates: [],
+      imageBounds: [
+        [-5.793320417860321, -50.537504099999995],
+        [-5.780820417860321, -50.527504099999995]
+      ],
+      boundaryCoordinates: [
+        [-5.793320417860321, -50.537504099999995],
+        [-5.793320417860321, -50.527504099999995],
+        [-5.780820417860321, -50.527504099999995],
+        [-5.780820417860321, -50.537504099999995]
+      ],
       gridResolution: 40,
-      isCalibrated: false,
-      calibrationAccuracy: null,
+      isCalibrated: true,
+      calibrationAccuracy: 0.0,
       terrainEnabled: false,
       terrainSource: null,
       terrainResolution: null,

@@ -580,6 +580,14 @@ export default function MineMap({
     return list
   }, [activeRepeaters, deactivatedRepeaterIds, showIndividualCoverage, selectedRepeaterId])
 
+  const heatmapPoints = useMemo<HeatPoint[]>(() => {
+    const pts = heatmapRepeaters.map(r => [r.latitude!, r.longitude!, 1.0] as HeatPoint)
+    if (simulatedRepeater) {
+      pts.push([simulatedRepeater.latitude, simulatedRepeater.longitude, 1.0] as HeatPoint)
+    }
+    return pts
+  }, [heatmapRepeaters, simulatedRepeater])
+
   // ----------------------------------------------------
   // GRID PROPAGATION MATH (WITH MEMOIZATION & CANVAS COMPATIBILITY)
   // ----------------------------------------------------
@@ -1166,10 +1174,7 @@ export default function MineMap({
             {/* HEATMAP LAYER — single layer to avoid alpha-compositing artifacts from stacked canvases */}
             {showGrid && (
               <HeatmapLayer
-                points={[
-                  ...heatmapRepeaters.map(r => [r.latitude!, r.longitude!, 1.0] as HeatPoint),
-                  ...(simulatedRepeater ? [[simulatedRepeater.latitude, simulatedRepeater.longitude, 1.0] as HeatPoint] : [])
-                ]}
+                points={heatmapPoints}
                 radius={currentHeatRadius}
                 blur={liveHeatBlur}
                 max={liveHeatIntensity}
