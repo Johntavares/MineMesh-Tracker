@@ -109,13 +109,11 @@ function MapClickHandler({ onMapClick, active }: { onMapClick: (latlng: L.LatLng
 function MapAutoFitter({
   boundaryCoords,
   imageBounds,
-  repeaterPositions,
   center,
   defaultZoom
 }: {
   boundaryCoords: [number, number][]
   imageBounds: [[number, number], [number, number]] | null
-  repeaterPositions: [number, number][]
   center: [number, number]
   defaultZoom: number
 }) {
@@ -123,7 +121,7 @@ function MapAutoFitter({
   useEffect(() => {
     map.invalidateSize()
 
-    // Build a combined latLngBounds that covers image + all active repeaters
+    // Build a latLngBounds that covers image or boundary
     let bounds: L.LatLngBounds | null = null
 
     if (imageBounds && imageBounds.length === 2 && imageBounds[0] && imageBounds[1]) {
@@ -132,23 +130,12 @@ function MapAutoFitter({
       bounds = L.latLngBounds(boundaryCoords)
     }
 
-    // Extend bounds to include repeater positions
-    if (repeaterPositions.length > 0) {
-      repeaterPositions.forEach(pos => {
-        if (bounds) {
-          bounds.extend(pos)
-        } else {
-          bounds = L.latLngBounds(pos, pos)
-        }
-      })
-    }
-
     if (bounds && bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [40, 40] })
+      map.fitBounds(bounds, { padding: [20, 20] })
     } else if (center && center[0] !== 0) {
       map.setView(center, defaultZoom || 15)
     }
-  }, [boundaryCoords, imageBounds, repeaterPositions, center, defaultZoom, map])
+  }, [boundaryCoords, imageBounds, center, defaultZoom, map])
   return null
 }
 
@@ -175,6 +162,21 @@ function HeatmapZoomHandler({
 }) {
   const map = useMapEvents({
     zoom() {
+      const currentZoom = map.getZoom()
+      const scale = Math.pow(2, currentZoom - defaultZoom)
+      setHeatRadius(Math.max(1, Math.round(baseRadius * scale)))
+    },
+    zoomend() {
+      const currentZoom = map.getZoom()
+      const scale = Math.pow(2, currentZoom - defaultZoom)
+      setHeatRadius(Math.max(1, Math.round(baseRadius * scale)))
+    },
+    moveend() {
+      const currentZoom = map.getZoom()
+      const scale = Math.pow(2, currentZoom - defaultZoom)
+      setHeatRadius(Math.max(1, Math.round(baseRadius * scale)))
+    },
+    resize() {
       const currentZoom = map.getZoom()
       const scale = Math.pow(2, currentZoom - defaultZoom)
       setHeatRadius(Math.max(1, Math.round(baseRadius * scale)))
@@ -1090,7 +1092,6 @@ export default function MineMap({
             <MapAutoFitter
               boundaryCoords={boundaryCoordsForFitter}
               imageBounds={correctedOrtofotoBounds}
-              repeaterPositions={repeaterPositions}
               center={center}
               defaultZoom={zoom}
             />
