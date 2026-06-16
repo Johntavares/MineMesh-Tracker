@@ -1172,23 +1172,46 @@ export default function MineMap({
               </Polygon>
             ))}
 
-            {/* HEATMAP LAYER — single layer to avoid alpha-compositing artifacts from stacked canvases */}
+            {/* HEATMAP LAYER — SVG radial gradient circles for physical coverage without blowout/saturation */}
             {showGrid && (
-              <HeatmapLayer
-                points={heatmapPoints}
-                radius={currentHeatRadius}
-                blur={liveHeatBlur}
-                max={liveHeatIntensity}
-                minOpacity={0.04}
-                gradient={{
-                  0.0:  '#00007f',
-                  0.2:  '#0000ff',
-                  0.4:  '#00ffff',
-                  0.6:  '#ffff00',
-                  0.8:  '#ff8c00',
-                  1.0:  '#ff0000',
-                }}
-              />
+              <>
+                <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
+                  <defs>
+                    <radialGradient id="signal-gradient" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor="#10B981" stopOpacity={liveHeatIntensity} />
+                      <stop offset={`${Math.max(10, 80 - liveHeatBlur)}%`} stopColor="#F59E0B" stopOpacity={liveHeatIntensity * 0.6} />
+                      <stop offset={`${Math.max(20, 95 - liveHeatBlur / 2)}%`} stopColor="#EF4444" stopOpacity={liveHeatIntensity * 0.2} />
+                      <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
+                    </radialGradient>
+                  </defs>
+                </svg>
+                {heatmapRepeaters.map(r => (
+                  <Circle
+                    key={`heat-${r.id}`}
+                    center={[r.latitude!, r.longitude!]}
+                    radius={liveHeatRadius}
+                    pathOptions={{
+                      fillColor: 'url(#signal-gradient)',
+                      fillOpacity: 1.0,
+                      stroke: false,
+                      interactive: false
+                    }}
+                  />
+                ))}
+                {simulatedRepeater && (
+                  <Circle
+                    key="heat-simulated"
+                    center={[simulatedRepeater.latitude, simulatedRepeater.longitude]}
+                    radius={liveHeatRadius}
+                    pathOptions={{
+                      fillColor: 'url(#signal-gradient)',
+                      fillOpacity: 1.0,
+                      stroke: false,
+                      interactive: false
+                    }}
+                  />
+                )}
+              </>
             )}
 
 
@@ -1495,7 +1518,7 @@ export default function MineMap({
                   <div>
                     <div className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold mb-1">Escala de Sinal</div>
                     <div className="h-4 rounded-full w-full" style={{
-                      background: 'linear-gradient(to right, #00007f, #0000ff 20%, #00ffff 40%, #ffff00 60%, #ff8c00 80%, #ff0000)'
+                      background: 'linear-gradient(to right, #EF4444, #F59E0B, #10B981)'
                     }} />
                     <div className="flex justify-between mt-0.5">
                       <span className="text-[8px] text-slate-400">Sem sinal</span>
@@ -1507,17 +1530,17 @@ export default function MineMap({
                   <div>
                     <div className="flex justify-between items-center mb-1">
                       <label className="text-[10px] font-medium text-slate-600">Raio (alcance)</label>
-                      <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{liveHeatRadius}px</span>
+                      <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{liveHeatRadius}m</span>
                     </div>
                     <input
                       type="range"
-                      min={1} max={200} step={1}
+                      min={10} max={500} step={10}
                       value={liveHeatRadius}
                       onChange={e => setLiveHeatRadius(Number(e.target.value))}
                       className="w-full h-1.5 rounded-full appearance-none bg-slate-200 accent-blue-600 cursor-pointer"
                     />
                     <div className="flex justify-between text-[8px] text-slate-400 mt-0.5">
-                      <span>1</span><span>200</span>
+                      <span>10m</span><span>500m</span>
                     </div>
                   </div>
 
@@ -1525,7 +1548,7 @@ export default function MineMap({
                   <div>
                     <div className="flex justify-between items-center mb-1">
                       <label className="text-[10px] font-medium text-slate-600">Suavidade</label>
-                      <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{liveHeatBlur}px</span>
+                      <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{liveHeatBlur}%</span>
                     </div>
                     <input
                       type="range"
@@ -1565,6 +1588,9 @@ export default function MineMap({
                       setHeatSaveMsg('')
                       const res = await saveHeatmapConfig(mineId, liveHeatRadius, liveHeatBlur, liveHeatIntensity)
                       setSavingHeat(false)
+                      if (res.success) {
+                        router.refresh()
+                      }
                       setHeatSaveMsg(res.success ? '✓ Salvo!' : '✗ Erro ao salvar')
                       setTimeout(() => setHeatSaveMsg(''), 2500)
                     }}

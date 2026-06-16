@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { prisma } from '@/lib/prisma'
 import { MineMapWrapper } from '@/components/map/MineMapWrapper'
 import { getDictionary } from '@/lib/i18n/server'
