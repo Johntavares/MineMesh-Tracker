@@ -1084,7 +1084,7 @@ export default function MineMap({
             zoom={zoom}
             scrollWheelZoom={true}
             style={{ height: '100%', width: '100%' }}
-            preferCanvas={true}
+            preferCanvas={false}
           >
 
 
@@ -1239,7 +1239,7 @@ export default function MineMap({
               const isRajant = repeater.model.toLowerCase().includes('rajant')
               const modelIcon = isRajant
                 ? `<!-- Rajant BreadCrumb Icon (Rugged Box with Dual Antennas) -->
-                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
+                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
                      <path d="M7 2v5M17 2v5" />
                      <rect x="4" y="7" width="16" height="14" rx="2" fill="${statusColor}" fill-opacity="0.12" />
                      <circle cx="8" cy="11" r="1" fill="${statusColor}" />
@@ -1250,7 +1250,7 @@ export default function MineMap({
                      <circle cx="15" cy="16" r="1.5" fill="${statusColor}" />
                    </svg>`
                 : `<!-- JR3 Radio Transmitter Icon (Antenna Mast with Wave propagation) -->
-                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
+                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
                      <line x1="12" y1="22" x2="12" y2="7" />
                      <circle cx="12" cy="5" r="2.2" fill="${statusColor}" />
                      <path d="M16 6.5a4.5 4.5 0 0 1 0 7" />
@@ -1261,17 +1261,17 @@ export default function MineMap({
 
               const divIcon = L.divIcon({
                 html: `
-                  <div style="position: relative; width: 32px; height: 32px;">
+                  <div style="position: relative; width: 25px; height: 25px;">
                     <div style="
-                      width: 32px;
-                      height: 32px;
+                      width: 25px;
+                      height: 25px;
                       background: white;
-                      border: 3.5px solid ${statusColor};
+                      border: 2.2px solid ${statusColor};
                       border-radius: 50%;
                       display: flex;
                       align-items: center;
                       justify-content: center;
-                      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+                      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
                       opacity: ${isDeactivated ? 0.6 : 1.0};
                     ">
                       ${modelIcon}
@@ -1280,16 +1280,16 @@ export default function MineMap({
                       <div style="
                         position: absolute;
                         bottom: -4px;
-                        right: -6px;
+                        right: -8px;
                         background: #2563EB;
                         color: white;
                         font-family: sans-serif;
-                        font-size: 7px;
+                        font-size: 6px;
                         font-weight: 800;
-                        padding: 1px 3px;
-                        border-radius: 4px;
+                        padding: 0.5px 2px;
+                        border-radius: 3px;
                         border: 1px solid white;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+                        box-shadow: 0 1px 2px rgba(0,0,0,0.25);
                         white-space: nowrap;
                         z-index: 1000;
                       ">
@@ -1299,8 +1299,8 @@ export default function MineMap({
                   </div>
                 `,
                 className: '',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16],
+                iconSize: [25, 25],
+                iconAnchor: [12.5, 12.5],
               })
 
               return (
