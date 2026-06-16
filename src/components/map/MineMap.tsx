@@ -385,6 +385,28 @@ export default function MineMap({
     }
   }, [isOnline, pendingSyncCount])
 
+  // Merge repeaters with any pending local coordinates from localStorage queue
+  const localRepeaters = useMemo(() => {
+    try {
+      const queue = JSON.parse(localStorage.getItem('mesh_sync_queue') || '[]')
+      return repeaters.map(r => {
+        const pending = queue.find((item: any) => item.repeaterId === r.id)
+        if (pending) {
+          return {
+            ...r,
+            latitude: pending.latitude,
+            longitude: pending.longitude,
+            locationDescription: pending.locationDescription || r.locationDescription,
+            updatedAt: new Date(pending.timestamp).toISOString()
+          }
+        }
+        return r
+      })
+    } catch {
+      return repeaters
+    }
+  }, [repeaters, pendingSyncCount])
+
   // Dynamic Center and Fallbacks
   const center = useMemo<[number, number]>(() => mapConfig && mapConfig.centerLat && mapConfig.centerLng
     ? [mapConfig.centerLat, mapConfig.centerLng]
@@ -571,8 +593,8 @@ export default function MineMap({
 
   // Active repeaters list (ONLINE and MAINTENANCE physical ones)
   const activeRepeaters = useMemo(
-    () => repeaters.filter(r => r.latitude && r.longitude && (r.status === 'ONLINE' || r.status === 'MAINTENANCE')),
-    [repeaters]
+    () => localRepeaters.filter(r => r.latitude && r.longitude && (r.status === 'ONLINE' || r.status === 'MAINTENANCE')),
+    [localRepeaters]
   )
 
   const repeaterPositions = useMemo(
@@ -1223,7 +1245,7 @@ export default function MineMap({
 
 
             {/* PHYSICAL REPEATERS MARKERS */}
-            {showRepeaters && repeaters.map(repeater => {
+            {showRepeaters && localRepeaters.map(repeater => {
               if (!repeater.latitude || !repeater.longitude) return null
 
               const position: L.LatLngTuple = [repeater.latitude!, repeater.longitude!]
@@ -1385,13 +1407,53 @@ export default function MineMap({
                         <form className="mt-2.5 pt-2.5 border-t" onSubmit={async (e) => {
                           e.preventDefault()
                           const form = e.currentTarget
-                          const lat = Number((form.elements.namedItem('lat') as HTMLInputElement).value)
-                          const lng = Number((form.elements.namedItem('lng') as HTMLInputElement).value)
                           const desc = (form.elements.namedItem('desc') as HTMLInputElement).value
-                          await handleLocationUpdate(repeater.id, lat, lng, desc)
+                          const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement
+                          
+                          if (submitBtn) {
+                            submitBtn.disabled = true
+                            submitBtn.textContent = 'Obtendo GPS do Celular...'
+                          }
+
+                          const fallbackToInputs = async () => {
+                            const latInput = form.elements.namedItem('lat') as HTMLInputElement
+                            const lngInput = form.elements.namedItem('lng') as HTMLInputElement
+                            const lat = latInput ? Number(latInput.value) : null
+                            const lng = lngInput ? Number(lngInput.value) : null
+                            if (lat !== null && !isNaN(lat) && lng !== null && !isNaN(lng)) {
+                              await handleLocationUpdate(repeater.id, lat, lng, desc)
+                            } else {
+                              alert('Não foi possível obter a localização do GPS e as coordenadas manuais estão em branco.')
+                            }
+                            if (submitBtn) {
+                              submitBtn.disabled = false
+                              submitBtn.textContent = 'Atualizar Coordenadas'
+                            }
+                          }
+
+                          if ('geolocation' in navigator) {
+                            navigator.geolocation.getCurrentPosition(
+                              async (position) => {
+                                const lat = position.coords.latitude
+                                const lng = position.coords.longitude
+                                await handleLocationUpdate(repeater.id, lat, lng, desc)
+                                if (submitBtn) {
+                                  submitBtn.disabled = false
+                                  submitBtn.textContent = 'Atualizar Coordenadas'
+                                }
+                              },
+                              async (error) => {
+                                console.warn('GPS error, falling back to manual inputs:', error)
+                                await fallbackToInputs()
+                              },
+                              { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+                            )
+                          } else {
+                            await fallbackToInputs()
+                          }
                         }}>
                           <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Descrição Localização</label>
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Descrição Localização / Referência</label>
                             <input type="text" name="desc" defaultValue={repeater.locationDescription || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5" />
                           </div>
                           <div className="grid grid-cols-2 gap-1.5 mt-1.5">
@@ -1404,7 +1466,7 @@ export default function MineMap({
                               <input type="number" name="lng" step="any" defaultValue={repeater.longitude || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5 font-mono" />
                             </div>
                           </div>
-                          <button type="submit" className="w-full mt-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-semibold rounded">
+                          <button type="submit" className="w-full mt-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-semibold rounded cursor-pointer transition-colors">
                             Atualizar Coordenadas
                           </button>
                         </form>
