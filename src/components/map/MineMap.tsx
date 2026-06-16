@@ -1233,6 +1233,8 @@ export default function MineMap({
                 ? '#F59E0B' 
                 : '#EF4444'
 
+              const isRoot = repeater.code.toUpperCase().startsWith('ROOT-')
+
               // Custom SVG icons representing the actual physical Rajant and JR3 devices
               const isRajant = repeater.model.toLowerCase().includes('rajant')
               const modelIcon = isRajant
@@ -1259,19 +1261,41 @@ export default function MineMap({
 
               const divIcon = L.divIcon({
                 html: `
-                  <div style="
-                    width: 32px;
-                    height: 32px;
-                    background: white;
-                    border: 3.5px solid ${statusColor};
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
-                    opacity: ${isDeactivated ? 0.6 : 1.0};
-                  ">
-                    ${modelIcon}
+                  <div style="position: relative; width: 32px; height: 32px;">
+                    <div style="
+                      width: 32px;
+                      height: 32px;
+                      background: white;
+                      border: 3.5px solid ${statusColor};
+                      border-radius: 50%;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+                      opacity: ${isDeactivated ? 0.6 : 1.0};
+                    ">
+                      ${modelIcon}
+                    </div>
+                    ${isRoot ? `
+                      <div style="
+                        position: absolute;
+                        bottom: -4px;
+                        right: -6px;
+                        background: #2563EB;
+                        color: white;
+                        font-family: sans-serif;
+                        font-size: 7px;
+                        font-weight: 800;
+                        padding: 1px 3px;
+                        border-radius: 4px;
+                        border: 1px solid white;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+                        white-space: nowrap;
+                        z-index: 1000;
+                      ">
+                        FIBRA
+                      </div>
+                    ` : ''}
                   </div>
                 `,
                 className: '',

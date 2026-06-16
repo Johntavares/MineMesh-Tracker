@@ -15,6 +15,78 @@ export default async function MapPage({
   if (!isLocale(lang)) notFound()
   const dict = await getDictionary(lang)
 
+  // Auto-seed root repeaters if they don't exist yet
+  const rootCount = await prisma.repeater.count({
+    where: { code: { startsWith: 'ROOT-' }, deletedAt: null }
+  })
+  if (rootCount === 0) {
+    const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
+    const adminId = admin?.id || null
+    const roots = [
+      {
+        name: 'Root Fibra Noroeste',
+        code: 'ROOT-001',
+        model: 'Rajante',
+        status: 'ONLINE',
+        latitude: -5.786521,
+        longitude: -50.540646,
+        altitude: 880.0,
+        range: 300,
+        mineId: 'default-mine',
+        updatedById: adminId,
+        notes: 'Conectado diretamente à Fibra Óptica'
+      },
+      {
+        name: 'Root Fibra Nordeste',
+        code: 'ROOT-002',
+        model: 'Rajante',
+        status: 'ONLINE',
+        latitude: -5.784767,
+        longitude: -50.530242,
+        altitude: 870.0,
+        range: 300,
+        mineId: 'default-mine',
+        updatedById: adminId,
+        notes: 'Conectado diretamente à Fibra Óptica'
+      },
+      {
+        name: 'Root Fibra Sudeste',
+        code: 'ROOT-003',
+        model: 'Rajante',
+        status: 'ONLINE',
+        latitude: -5.792338,
+        longitude: -50.526651,
+        altitude: 850.0,
+        range: 300,
+        mineId: 'default-mine',
+        updatedById: adminId,
+        notes: 'Conectado diretamente à Fibra Óptica'
+      },
+      {
+        name: 'Root Fibra Sul-Oeste',
+        code: 'ROOT-004',
+        model: 'Rajante',
+        status: 'ONLINE',
+        latitude: -5.793508,
+        longitude: -50.539575,
+        altitude: 845.0,
+        range: 300,
+        mineId: 'default-mine',
+        updatedById: adminId,
+        notes: 'Conectado diretamente à Fibra Óptica'
+      }
+    ]
+    for (const r of roots) {
+      await prisma.repeater.upsert({
+        where: { code: r.code },
+        update: {
+          deletedAt: null
+        },
+        create: r
+      })
+    }
+  }
+
   // Fetch the default mine and its georeferenced entities
   const mine = await prisma.mine.findUnique({
     where: { id: 'default-mine' },
