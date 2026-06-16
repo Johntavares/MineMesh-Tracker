@@ -1233,11 +1233,29 @@ export default function MineMap({
                 ? '#F59E0B' 
                 : '#EF4444'
 
-              // Custom SVG icons depending on model
-              const isRajante = repeater.model.toLowerCase() === 'rajante'
-              const modelIcon = isRajante
-                ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/></svg>`
-                : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>`
+              // Custom SVG icons representing the actual physical Rajant and JR3 devices
+              const isRajant = repeater.model.toLowerCase().includes('rajant')
+              const modelIcon = isRajant
+                ? `<!-- Rajant BreadCrumb Icon (Rugged Box with Dual Antennas) -->
+                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
+                     <path d="M7 2v5M17 2v5" />
+                     <rect x="4" y="7" width="16" height="14" rx="2" fill="${statusColor}" fill-opacity="0.12" />
+                     <circle cx="8" cy="11" r="1" fill="${statusColor}" />
+                     <circle cx="12" cy="11" r="1" fill="${statusColor}" />
+                     <circle cx="16" cy="11" r="1" fill="${statusColor}" />
+                     <path d="M9 16h6" stroke-dasharray="2 1.5" />
+                     <circle cx="9" cy="16" r="1.5" fill="${statusColor}" />
+                     <circle cx="15" cy="16" r="1.5" fill="${statusColor}" />
+                   </svg>`
+                : `<!-- JR3 Radio Transmitter Icon (Antenna Mast with Wave propagation) -->
+                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${statusColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">
+                     <line x1="12" y1="22" x2="12" y2="7" />
+                     <circle cx="12" cy="5" r="2.2" fill="${statusColor}" />
+                     <path d="M16 6.5a4.5 4.5 0 0 1 0 7" />
+                     <path d="M18.8 3.7a8.5 8.5 0 0 1 0 12.6" />
+                     <path d="M8 13.5a4.5 4.5 0 0 1 0-7" />
+                     <path d="M5.2 16.3a8.5 8.5 0 0 1 0-12.6" />
+                   </svg>`
 
               const divIcon = L.divIcon({
                 html: `
