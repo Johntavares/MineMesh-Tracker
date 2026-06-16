@@ -15,9 +15,21 @@ export async function saveRepeater(data: FormData) {
   const status = data.get('status') as string
   const notes = data.get('notes') as string
   const range = Number(data.get('range')) || 100
-  const latitude = data.get('latitude') ? Number(data.get('latitude')) : null
-  const longitude = data.get('longitude') ? Number(data.get('longitude')) : null
+  let latitude = data.get('latitude') ? Number(data.get('latitude')) : null
+  let longitude = data.get('longitude') ? Number(data.get('longitude')) : null
   const mineId = (data.get('mineId') as string) || 'default-mine'
+
+  // If no coordinates are provided (e.g. creating a new repeater), default to the mine's center coordinates
+  if (latitude === null || longitude === null) {
+    const mine = await prisma.mine.findUnique({
+      where: { id: mineId },
+      select: { centerLat: true, centerLng: true }
+    })
+    if (mine) {
+      if (latitude === null) latitude = mine.centerLat
+      if (longitude === null) longitude = mine.centerLng
+    }
+  }
 
   const cookieStore = await cookies()
   const lang = cookieStore.get('NEXT_LOCALE')?.value || 'pt-BR'
