@@ -1175,7 +1175,7 @@ export default function MineMap({
             {/* HEATMAP LAYER — SVG radial gradient circles for physical coverage without blowout/saturation */}
             {showGrid && (
               <>
-                <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
+                <svg key={`svg-grad-${liveHeatBlur}-${liveHeatIntensity}`} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
                   <defs>
                     <radialGradient id="signal-gradient" cx="50%" cy="50%" r="50%">
                       <stop offset="0%" stopColor="#10B981" stopOpacity={liveHeatIntensity} />
@@ -1187,7 +1187,7 @@ export default function MineMap({
                 </svg>
                 {heatmapRepeaters.map(r => (
                   <Circle
-                    key={`heat-${r.id}`}
+                    key={`heat-${r.id}-${liveHeatRadius}-${liveHeatBlur}-${liveHeatIntensity}`}
                     center={[r.latitude!, r.longitude!]}
                     radius={liveHeatRadius}
                     pathOptions={{
@@ -1200,7 +1200,7 @@ export default function MineMap({
                 ))}
                 {simulatedRepeater && (
                   <Circle
-                    key="heat-simulated"
+                    key={`heat-simulated-${liveHeatRadius}-${liveHeatBlur}-${liveHeatIntensity}`}
                     center={[simulatedRepeater.latitude, simulatedRepeater.longitude]}
                     radius={liveHeatRadius}
                     pathOptions={{
