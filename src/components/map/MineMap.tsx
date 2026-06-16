@@ -378,6 +378,13 @@ export default function MineMap({
     }
   }, [])
 
+  // Automatically sync pending offline updates when connection is restored
+  useEffect(() => {
+    if (isOnline && pendingSyncCount > 0) {
+      triggerSync()
+    }
+  }, [isOnline, pendingSyncCount])
+
   // Dynamic Center and Fallbacks
   const center = useMemo<[number, number]>(() => mapConfig && mapConfig.centerLat && mapConfig.centerLng
     ? [mapConfig.centerLat, mapConfig.centerLng]
@@ -1520,6 +1527,24 @@ export default function MineMap({
                     {activeRepeaters.length}
                   </span>
                 </div>
+              </div>
+
+              {/* Connection Status & Offline Sync Row */}
+              <div className="flex items-center justify-between px-3.5 py-1.5 bg-slate-50 border-b border-slate-100 text-[9px]">
+                <div className="flex items-center gap-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+                  <span className="font-semibold text-slate-500">
+                    {isOnline ? 'Rede: Online' : 'Rede: Offline'}
+                  </span>
+                </div>
+                {pendingSyncCount > 0 && (
+                  <button
+                    onClick={triggerSync}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-1.5 py-0.5 rounded shadow text-[8px] flex items-center gap-0.5 transition-colors cursor-pointer"
+                  >
+                    Sincronizar ({pendingSyncCount})
+                  </button>
+                )}
               </div>
 
               {/* Heatmap toggle row */}
