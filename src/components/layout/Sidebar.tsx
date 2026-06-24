@@ -73,8 +73,8 @@ export function Sidebar({ lang }: SidebarProps) {
       </div>
 
       {/* Mobile bottom tab bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900 border-t border-slate-800 safe-area-bottom">
-        <nav className="flex items-center justify-around h-16 px-2">
+      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900 border-t border-slate-800" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <nav className="flex items-center justify-around h-14 px-1">
           {filteredNav
             .filter((item) => !item.adminOnly)
             .map((item) => {
@@ -84,12 +84,15 @@ export function Sidebar({ lang }: SidebarProps) {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${
+                className={`flex flex-col items-center justify-center gap-0.5 min-h-[52px] min-w-[56px] px-2 py-1 rounded-lg transition-colors relative ${
                   isActive ? 'text-blue-400' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Icon className="h-5 w-5" />
                 <span className="text-[10px] font-medium leading-tight">{item.name}</span>
+                {isActive && (
+                  <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-400" />
+                )}
               </Link>
             )
           })}

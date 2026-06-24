@@ -19,8 +19,8 @@ export default async function SettingsPage({
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-8">{dict.settings.title}</h1>
+      <div className="max-w-5xl mx-auto px-3 py-4 sm:px-6 lg:px-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4 sm:mb-8">{dict.settings.title}</h1>
         
         <div className="space-y-8">
           <GeoreferenceWizard

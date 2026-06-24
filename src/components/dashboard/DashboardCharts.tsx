@@ -25,9 +25,9 @@ export function DashboardCharts({ statusData, activityData }: DashboardChartsPro
 
   return (
     <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+      <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-slate-100">
         <h3 className="text-lg font-semibold text-slate-800 mb-6">{t('dashboard.networkStatus')}</h3>
-        <div className="h-72 w-full">
+        <div className="h-60 sm:h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -52,9 +52,9 @@ export function DashboardCharts({ statusData, activityData }: DashboardChartsPro
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+      <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-slate-100">
         <h3 className="text-lg font-semibold text-slate-800 mb-6">{t('dashboard.movementsByUser')}</h3>
-        <div className="h-72 w-full">
+        <div className="h-60 sm:h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={activityData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />

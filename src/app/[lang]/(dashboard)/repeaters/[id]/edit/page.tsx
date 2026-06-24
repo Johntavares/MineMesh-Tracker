@@ -18,8 +18,8 @@ export default async function EditRepeaterPage({ params }: { params: Promise<{ i
   }
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-slate-900 mb-8">{dict.repeaters.editRepeater}</h1>
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
+      <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-6 sm:mb-8">{dict.repeaters.editRepeater}</h1>
       <RepeaterForm initialData={repeater} lang={lang} />
     </div>
   )

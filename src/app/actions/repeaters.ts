@@ -81,7 +81,8 @@ export async function updateRepeaterLocation(
       }
     })
 
-    revalidatePath('/', 'layout')
+    revalidatePath('/[lang]/map', 'page')
+
     return { success: true }
   } catch (error) {
     console.error(error)

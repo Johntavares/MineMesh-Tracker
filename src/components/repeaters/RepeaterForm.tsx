@@ -28,12 +28,12 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
         setLoading(true)
         await saveRepeater(formData)
       }} 
-      className="bg-white p-8 rounded-xl shadow-sm border border-slate-100 max-w-2xl"
+      className="bg-white p-4 sm:p-8 rounded-xl shadow-sm border border-slate-100 max-w-2xl"
     >
       {initialData?.id && <input type="hidden" name="id" value={initialData.id} />}
       <input type="hidden" name="mineId" value={initialData?.mineId || 'default-mine'} />
       
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-slate-700">{t('repeaters.form.nameLabel')}</label>
           <input 
@@ -106,17 +106,17 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
         {initialData?.longitude && <input type="hidden" name="longitude" value={initialData.longitude} />}
       </div>
 
-      <div className="mt-8 flex justify-end space-x-3">
+      <div className="mt-8 flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 sm:space-x-3 justify-end">
         <Link 
           href={`/${lang}/repeaters`}
-          className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors"
+          className="inline-flex justify-center items-center px-5 py-3 sm:px-4 sm:py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors w-full sm:w-auto text-center"
         >
           {t('common.cancel')}
         </Link>
         <button 
           type="submit"
           disabled={loading}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+          className="inline-flex justify-center items-center px-5 py-3 sm:px-4 sm:py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 w-full sm:w-auto text-center"
         >
           {loading ? t('repeaters.form.saving') : t('repeaters.form.save')}
         </button>

@@ -37,13 +37,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 bg-slate-800 p-10 rounded-xl shadow-2xl border border-slate-700">
+    <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-8">
+      <div className="w-full max-w-md space-y-6 bg-slate-800 p-6 sm:p-10 rounded-xl shadow-2xl border border-slate-700">
         <div>
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-600">
             <Radio className="h-8 w-8 text-white" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
+          <h2 className="mt-4 sm:mt-6 text-center text-2xl sm:text-3xl font-extrabold text-white">
             {t('auth.loginTitle')}
           </h2>
           <p className="mt-2 text-center text-sm text-slate-400">

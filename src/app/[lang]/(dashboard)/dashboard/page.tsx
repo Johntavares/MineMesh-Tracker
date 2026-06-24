@@ -35,47 +35,47 @@ export default async function DashboardPage({
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-8">{dict.dashboard.title}</h1>
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <h1 className="text-xl sm:text-3xl font-bold text-slate-900 mb-4 sm:mb-8">{dict.dashboard.title}</h1>
         
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
-            <div className="p-4 bg-blue-100 rounded-lg text-blue-600 mr-4">
-              <Radio className="w-8 h-8" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-6">
+          <div className="bg-white p-3 sm:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
+            <div className="p-2 sm:p-4 bg-blue-100 rounded-lg text-blue-600 mr-3 sm:mr-4 shrink-0">
+              <Radio className="w-5 h-5 sm:w-8 sm:h-8" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">{dict.dashboard.totalRepeaters}</p>
-              <p className="text-3xl font-bold text-slate-800">{total}</p>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
-            <div className="p-4 bg-emerald-100 rounded-lg text-emerald-600 mr-4">
-              <Signal className="w-8 h-8" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">{dict.dashboard.online}</p>
-              <p className="text-3xl font-bold text-slate-800">{online}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.dashboard.totalRepeaters}</p>
+              <p className="text-xl sm:text-3xl font-bold text-slate-800">{total}</p>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
-            <div className="p-4 bg-red-100 rounded-lg text-red-600 mr-4">
-              <PowerOff className="w-8 h-8" />
+          <div className="bg-white p-3 sm:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
+            <div className="p-2 sm:p-4 bg-emerald-100 rounded-lg text-emerald-600 mr-3 sm:mr-4 shrink-0">
+              <Signal className="w-5 h-5 sm:w-8 sm:h-8" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">{dict.dashboard.offline}</p>
-              <p className="text-3xl font-bold text-slate-800">{offline}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.dashboard.online}</p>
+              <p className="text-xl sm:text-3xl font-bold text-slate-800">{online}</p>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
-            <div className="p-4 bg-amber-100 rounded-lg text-amber-600 mr-4">
-              <AlertTriangle className="w-8 h-8" />
+          <div className="bg-white p-3 sm:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
+            <div className="p-2 sm:p-4 bg-red-100 rounded-lg text-red-600 mr-3 sm:mr-4 shrink-0">
+              <PowerOff className="w-5 h-5 sm:w-8 sm:h-8" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">{dict.dashboard.maintenance}</p>
-              <p className="text-3xl font-bold text-slate-800">{maintenance}</p>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.dashboard.offline}</p>
+              <p className="text-xl sm:text-3xl font-bold text-slate-800">{offline}</p>
+            </div>
+          </div>
+
+          <div className="bg-white p-3 sm:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
+            <div className="p-2 sm:p-4 bg-amber-100 rounded-lg text-amber-600 mr-3 sm:mr-4 shrink-0">
+              <AlertTriangle className="w-5 h-5 sm:w-8 sm:h-8" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.dashboard.maintenance}</p>
+              <p className="text-xl sm:text-3xl font-bold text-slate-800">{maintenance}</p>
             </div>
           </div>
         </div>

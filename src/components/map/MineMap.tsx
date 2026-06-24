@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, MouseEvent, useMemo } from 'react'
+import { useEffect, useState, useRef, MouseEvent, useMemo, useTransition, useCallback } from 'react'
 import { MapContainer, TileLayer, ImageOverlay, Marker, Popup, Circle, Tooltip, ScaleControl, Polygon, Polyline, useMap, useMapEvents } from 'react-leaflet'
 import { HeatmapLayer } from './HeatmapLayer'
 import { useRouter } from 'next/navigation'
@@ -226,6 +226,13 @@ export default function MineMap({
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  // Optimistic local positions: updated immediately on drag, independent of server state
+  const [localPositions, setLocalPositions] = useState<Record<string, { lat: number; lng: number }>>({})
+
+  // Debounced repeaters for grid computation — avoids blocking main thread during drag
+  const [debouncedGridRepeaters, setDebouncedGridRepeaters] = useState<typeof repeaters>(repeaters)
 
   // Layers Toggles
   const [showOrtofoto, setShowOrtofoto] = useState(true)
@@ -385,11 +392,16 @@ export default function MineMap({
     }
   }, [isOnline, pendingSyncCount])
 
-  // Merge repeaters with any pending local coordinates from localStorage queue
+  // Merge repeaters with optimistic local positions and offline queue
   const localRepeaters = useMemo(() => {
     try {
       const queue = JSON.parse(localStorage.getItem('mesh_sync_queue') || '[]')
       return repeaters.map(r => {
+        // Priority: optimistic local > offline queue > server
+        const localPos = localPositions[r.id]
+        if (localPos) {
+          return { ...r, latitude: localPos.lat, longitude: localPos.lng }
+        }
         const pending = queue.find((item: any) => item.repeaterId === r.id)
         if (pending) {
           return {
@@ -405,7 +417,7 @@ export default function MineMap({
     } catch {
       return repeaters
     }
-  }, [repeaters, pendingSyncCount])
+  }, [repeaters, pendingSyncCount, localPositions])
 
   // Dynamic Center and Fallbacks
   const center = useMemo<[number, number]>(() => mapConfig && mapConfig.centerLat && mapConfig.centerLng
@@ -511,11 +523,21 @@ export default function MineMap({
     reader.readAsText(file)
   }
 
+  // Rollback optimistic position (called on server error)
+  const rollbackLocalPosition = useCallback((repeaterId: string) => {
+    setLocalPositions(prev => {
+      const next = { ...prev }
+      delete next[repeaterId]
+      return next
+    })
+  }, [])
+
   // Handle updates (both online and enqueued offline)
+  // Optimistic: caller must have already updated localPositions before calling this
   const handleLocationUpdate = async (repeaterId: string, lat: number, lng: number, desc?: string) => {
     if (!checkCoordinatesInBoundary(lat, lng)) {
+      rollbackLocalPosition(repeaterId)
       alert('Atenção: A repetidora está fora dos limites operacionais oficiais da mina!')
-      router.refresh()
       return
     }
 
@@ -524,11 +546,13 @@ export default function MineMap({
     if (navigator.onLine) {
       try {
         const result = await updateRepeaterLocation(repeaterId, lat, lng, desc)
-        if (result.success) {
-          router.refresh()
-        } else {
+        if (!result.success) {
+          // Rollback visual position on error
+          rollbackLocalPosition(repeaterId)
           alert(result.error)
         }
+        // On success: keep localPositions as-is (visual already correct, server is updated)
+        // No router.refresh() needed — state is already correct
       } finally {
         setUpdatingId(null)
       }
@@ -549,6 +573,7 @@ export default function MineMap({
         alert('Dispositivo offline. Localização guardada localmente para sincronização.')
       } catch (err) {
         console.error('Failed to save offline actions', err)
+        rollbackLocalPosition(repeaterId)
       } finally {
         setUpdatingId(null)
       }
@@ -626,6 +651,31 @@ export default function MineMap({
   // Compact list of repeaters to avoid deep comparison in hook dependencies
   const physicalRepeatersKey = JSON.stringify(
     activeRepeaters.map(r => ({
+      id: r.id,
+      lat: r.latitude,
+      lng: r.longitude,
+      range: r.range,
+      model: r.model
+    }))
+  )
+
+  // Debounce grid repeaters by 300ms so dragging doesn't block the main thread
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startTransition(() => {
+        setDebouncedGridRepeaters(activeRepeaters)
+      })
+    }, 300)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [physicalRepeatersKey])
+
+  const debouncedActiveRepeaters = debouncedGridRepeaters.filter(
+    r => r.latitude && r.longitude && (r.status === 'ONLINE' || r.status === 'MAINTENANCE')
+  )
+
+  const debouncedRepeatersKey = JSON.stringify(
+    debouncedActiveRepeaters.map(r => ({
       id: r.id,
       lat: r.latitude,
       lng: r.longitude,
@@ -746,7 +796,7 @@ export default function MineMap({
 
     return { baselineCells: base, currentGridCells: current }
   }, [
-    physicalRepeatersKey,
+    debouncedRepeatersKey,
     simulatedRepeater,
     deactivatedRepeaterIds,
     selectedRepeaterId,
@@ -1342,7 +1392,10 @@ export default function MineMap({
                       dragend: async (e) => {
                         const marker = e.target
                         const pos = marker.getLatLng()
-                        await handleLocationUpdate(repeater.id, pos.lat, pos.lng, repeater.locationDescription || undefined)
+                        // Optimistic update: move marker instantly in local state
+                        setLocalPositions(prev => ({ ...prev, [repeater.id]: { lat: pos.lat, lng: pos.lng } }))
+                        // Persist to server in background (no await blocking UI)
+                        handleLocationUpdate(repeater.id, pos.lat, pos.lng, repeater.locationDescription || undefined)
                       },
                     }}
                   >
