@@ -28,12 +28,23 @@ export default async function RepeatersPage({
           <h1 className="text-xl sm:text-3xl font-bold text-slate-900">{dict.repeaters.title}</h1>
           <Link 
             href={`/${lang}/repeaters/new`}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="hidden md:flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Plus className="w-5 h-5 mr-2" />
             {dict.repeaters.newRepeater}
           </Link>
         </div>
+
+        {/* Mobile Floating Action Button (FAB) */}
+        <Link 
+          href={`/${lang}/repeaters/new`}
+          className="md:hidden fixed bottom-20 right-6 z-50 flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg active:scale-95 hover:bg-blue-700 transition-all border border-blue-500/20"
+          title={dict.repeaters.newRepeater}
+          style={{ bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' }}
+        >
+          <Plus className="w-6 h-6 animate-pulse-subtle" />
+        </Link>
+
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="overflow-x-auto">
