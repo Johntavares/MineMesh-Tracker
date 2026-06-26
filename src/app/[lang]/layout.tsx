@@ -21,6 +21,11 @@ export async function generateMetadata({
   return {
     title: dict.brand.title,
     description: dict.brand.description,
+    icons: {
+      icon: '/icon-192.png',
+      shortcut: '/icon-192.png',
+      apple: '/icon-192.png',
+    }
   }
 }
 
