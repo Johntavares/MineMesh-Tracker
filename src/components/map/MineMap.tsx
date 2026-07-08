@@ -736,7 +736,9 @@ export default function MineMap({
       const lngStep = (gridMaxLng - gridMinLng) / resolution
 
       // Apply virtual deactivations and coverage mode filters
-      let computationRepeaters = activeRepeaters.filter(r => !deactIds.includes(r.id))
+      let computationRepeaters = activeRepeaters.filter(
+        r => !deactIds.includes(r.id) && !r.code.toLowerCase().includes('320') && !r.name.toLowerCase().includes('320')
+      )
       if (indMode && indId) {
         computationRepeaters = computationRepeaters.filter(r => r.id === indId)
       }
@@ -1021,7 +1023,9 @@ export default function MineMap({
     let totalCoveredCells = 0
     let totalOverlaps = 0
 
-    const activeNonDeact = activeRepeaters.filter(r => !deactivatedRepeaterIds.includes(r.id))
+    const activeNonDeact = activeRepeaters.filter(
+      r => !deactivatedRepeaterIds.includes(r.id) && !r.code.toLowerCase().includes('320') && !r.name.toLowerCase().includes('320')
+    )
     
     currentGridCells.forEach(cell => {
       if (cell.status !== 'uncovered') {
@@ -1071,9 +1075,11 @@ export default function MineMap({
 
     const totalAreaHa = hasBoundary ? calculatePolygonArea(boundary!.coordinates) : 0.0
 
-    activeRepeaters.forEach(target => {
+    const activeNon320 = activeRepeaters.filter(r => !r.code.toLowerCase().includes('320') && !r.name.toLowerCase().includes('320'))
+
+    activeNon320.forEach(target => {
       let dependentCount = 0
-      const otherActive = activeRepeaters.filter(r => r.id !== target.id)
+      const otherActive = activeNon320.filter(r => r.id !== target.id)
 
       baselineCells.forEach(cell => {
         // Did target cover this cell?
