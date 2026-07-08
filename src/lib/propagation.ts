@@ -99,19 +99,19 @@ export interface RadioModel {
 export const RADIO_MODELS: Record<string, RadioModel> = {
   rajante: {
     name: 'Rajante',
-    txPower: 30, // 1W
-    antennaGain: 9,
-    receiverSensitivity: -95,
-    maxRange: 250,
+    txPower: 27, // 27 dBm (Rajant Breadcrumb JR3)
+    antennaGain: 5, // 5 dBi (KMA-2400-5)
+    receiverSensitivity: -97, // -97 dBm (2.4 GHz)
+    maxRange: 350,
     obstacleFactor: 1.0,
   },
   jr3: {
     name: 'JR3',
-    txPower: 20, // 100mW
-    antennaGain: 5,
-    receiverSensitivity: -90,
-    maxRange: 120,
-    obstacleFactor: 0.8,
+    txPower: 27, // 27 dBm (Rajant Breadcrumb JR3)
+    antennaGain: 5, // 5 dBi (KMA-2400-5)
+    receiverSensitivity: -97, // -97 dBm (2.4 GHz)
+    maxRange: 350,
+    obstacleFactor: 1.0,
   }
 }
 
@@ -208,11 +208,12 @@ export function calculateObstacleAttenuation(
 export function calculatePathLoss(
   distanceMeters: number,
   model: string,
-  obstacleMultiplier: number = 1.0
+  obstacleMultiplier: number = 1.0,
+  customMaxRange?: number
 ): number {
   const modelKey = model.toLowerCase()
   const radio = RADIO_MODELS[modelKey] || RADIO_MODELS.jr3
-  const maxRange = radio.maxRange
+  const maxRange = customMaxRange || radio.maxRange
 
   if (distanceMeters > maxRange) return 0.0
   if (distanceMeters <= 0.0) return 1.0

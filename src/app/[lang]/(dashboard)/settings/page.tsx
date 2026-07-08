@@ -2,7 +2,9 @@ import { prisma } from '@/lib/prisma'
 import { GeoreferenceWizard } from '@/components/settings/GeoreferenceWizard'
 import { getDictionary } from '@/lib/i18n/server'
 import { isLocale } from '@/lib/i18n/config'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export default async function SettingsPage({
   params,
@@ -12,6 +14,11 @@ export default async function SettingsPage({
   const { lang } = await params
   if (!isLocale(lang)) notFound()
   const dict = await getDictionary(lang)
+
+  const session = await getServerSession(authOptions)
+  if (session?.user?.role !== 'ADMIN') {
+    redirect(`/${lang}/dashboard`)
+  }
 
   const currentMine = await prisma.mine.findUnique({
     where: { id: 'default-mine' }

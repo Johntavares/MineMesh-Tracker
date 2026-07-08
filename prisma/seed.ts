@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
@@ -9,14 +10,18 @@ async function main() {
   await prisma.obstacle.deleteMany({})
   await prisma.mine.deleteMany({})
 
+  const hashedAdminPassword = await bcrypt.hash('admin', 10)
+
   // 1. Create admin user
   const admin = await prisma.user.upsert({
     where: { email: 'admin@mesh.local' },
-    update: {},
+    update: {
+      password: hashedAdminPassword,
+    },
     create: {
       email: 'admin@mesh.local',
       name: 'Administrador',
-      password: 'admin',
+      password: hashedAdminPassword,
       role: 'ADMIN',
     },
   })

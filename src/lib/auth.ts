@@ -1,6 +1,7 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from './prisma'
+import bcrypt from 'bcryptjs'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -19,8 +20,14 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email }
         })
 
-        // For MVP, simple plain text password check. In production, use bcrypt.compare
-        if (!user || user.password !== credentials.password) {
+        if (!user) {
+          return null
+        }
+
+        // Use bcrypt.compare for secure password checking
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
+        
+        if (!isPasswordValid) {
           return null
         }
 

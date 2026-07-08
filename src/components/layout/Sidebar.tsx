@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Map, Radio, History, Settings, LogOut } from 'lucide-react'
+import { Home, Map, Radio, History, Settings, LogOut, Users } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { useTranslation } from '@/lib/i18n/client'
 
@@ -20,7 +20,8 @@ export function Sidebar({ lang }: SidebarProps) {
     { name: t('nav.dashboard'), href: `/${lang}/dashboard`, icon: Home },
     { name: t('nav.map'), href: `/${lang}/map`, icon: Map },
     { name: t('nav.repeaters'), href: `/${lang}/repeaters`, icon: Radio },
-    { name: t('nav.logs'), href: `/${lang}/logs`, icon: History, adminOnly: true },
+    { name: t('nav.logs'), href: `/${lang}/logs`, icon: History },
+    { name: 'Usuários', href: `/${lang}/users`, icon: Users, adminOnly: true },
     { name: t('nav.settings'), href: `/${lang}/settings`, icon: Settings, adminOnly: true },
   ]
 

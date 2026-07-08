@@ -5,6 +5,8 @@ import { MineMapWrapper } from '@/components/map/MineMapWrapper'
 import { getDictionary } from '@/lib/i18n/server'
 import { isLocale } from '@/lib/i18n/config'
 import { notFound } from 'next/navigation'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export default async function MapPage({
   params,
@@ -15,77 +17,9 @@ export default async function MapPage({
   if (!isLocale(lang)) notFound()
   const dict = await getDictionary(lang)
 
-  // Auto-seed root repeaters if they don't exist yet
-  const rootCount = await prisma.repeater.count({
-    where: { code: { startsWith: 'ROOT-' }, deletedAt: null }
-  })
-  if (rootCount === 0) {
-    const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
-    const adminId = admin?.id || null
-    const roots = [
-      {
-        name: 'Root Fibra Noroeste',
-        code: 'ROOT-001',
-        model: 'Rajante',
-        status: 'ONLINE',
-        latitude: -5.786521,
-        longitude: -50.540646,
-        altitude: 880.0,
-        range: 300,
-        mineId: 'default-mine',
-        updatedById: adminId,
-        notes: 'Conectado diretamente à Fibra Óptica'
-      },
-      {
-        name: 'Root Fibra Nordeste',
-        code: 'ROOT-002',
-        model: 'Rajante',
-        status: 'ONLINE',
-        latitude: -5.784767,
-        longitude: -50.530242,
-        altitude: 870.0,
-        range: 300,
-        mineId: 'default-mine',
-        updatedById: adminId,
-        notes: 'Conectado diretamente à Fibra Óptica'
-      },
-      {
-        name: 'Root Fibra Sudeste',
-        code: 'ROOT-003',
-        model: 'Rajante',
-        status: 'ONLINE',
-        latitude: -5.792338,
-        longitude: -50.526651,
-        altitude: 850.0,
-        range: 300,
-        mineId: 'default-mine',
-        updatedById: adminId,
-        notes: 'Conectado diretamente à Fibra Óptica'
-      },
-      {
-        name: 'Root Fibra Sul-Oeste',
-        code: 'ROOT-004',
-        model: 'Rajante',
-        status: 'ONLINE',
-        latitude: -5.793508,
-        longitude: -50.539575,
-        altitude: 845.0,
-        range: 300,
-        mineId: 'default-mine',
-        updatedById: adminId,
-        notes: 'Conectado diretamente à Fibra Óptica'
-      }
-    ]
-    for (const r of roots) {
-      await prisma.repeater.upsert({
-        where: { code: r.code },
-        update: {
-          deletedAt: null
-        },
-        create: r
-      })
-    }
-  }
+  const session = await getServerSession(authOptions)
+  const userRole = session?.user?.role || 'OPERATOR'
+
 
   // Fetch the default mine and its georeferenced entities
   const mine = await prisma.mine.findUnique({
@@ -159,6 +93,7 @@ export default async function MapPage({
       boundary={boundary}
       obstacles={obstacles}
       lang={lang}
+      userRole={userRole}
     />
   )
 }

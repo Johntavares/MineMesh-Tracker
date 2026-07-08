@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef, MouseEvent, useMemo, useTransition, useCallback } from 'react'
 import { MapContainer, TileLayer, ImageOverlay, Marker, Popup, Circle, Tooltip, ScaleControl, Polygon, Polyline, useMap, useMapEvents } from 'react-leaflet'
-import { HeatmapLayer } from './HeatmapLayer'
 import { useRouter } from 'next/navigation'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -90,6 +89,7 @@ interface MineMapProps {
     attenuation: number
   }[]
   lang: string
+  userRole?: string
 }
 
 // Leaflet Map events helper to capture clicks for polygon drawing
@@ -220,8 +220,10 @@ export default function MineMap({
   heatConfig,
   boundary,
   obstacles = [],
-  lang
+  lang,
+  userRole = 'OPERATOR'
 }: MineMapProps) {
+  const isAdmin = userRole === 'ADMIN'
   const { t } = useTranslation()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -684,6 +686,34 @@ export default function MineMap({
     }))
   )
 
+  const gridBounds = useMemo<[[number, number], [number, number]]>(() => {
+    let gridMinLat = 90, gridMaxLat = -90, gridMinLng = 180, gridMaxLng = -180
+    if (hasBoundary) {
+      boundary!.coordinates.forEach(coord => {
+        if (coord[0] < gridMinLat) gridMinLat = coord[0]
+        if (coord[0] > gridMaxLat) gridMaxLat = coord[0]
+        if (coord[1] < gridMinLng) gridMinLng = coord[1]
+        if (coord[1] > gridMaxLng) gridMaxLng = coord[1]
+      })
+    } else if (ortofotoBounds) {
+      gridMinLat = Math.min(ortofotoBounds[0][0], ortofotoBounds[1][0])
+      gridMaxLat = Math.max(ortofotoBounds[0][0], ortofotoBounds[1][0])
+      gridMinLng = Math.min(ortofotoBounds[0][1], ortofotoBounds[1][1])
+      gridMaxLng = Math.max(ortofotoBounds[0][1], ortofotoBounds[1][1])
+    } else {
+      const cLat = mapConfig?.centerLat || -5.78957
+      const cLng = mapConfig?.centerLng || -50.53500
+      gridMinLat = cLat - 0.015
+      gridMaxLat = cLat + 0.015
+      gridMinLng = cLng - 0.015
+      gridMaxLng = cLng + 0.015
+    }
+    return [
+      [gridMinLat, gridMinLng],
+      [gridMaxLat, gridMaxLng]
+    ]
+  }, [boundary?.coordinates, hasBoundary, ortofotoBounds, mapConfig?.centerLat, mapConfig?.centerLng])
+
   const { baselineCells, currentGridCells } = useMemo(() => {
     const calc = (
       simulated: typeof simulatedRepeater,
@@ -693,28 +723,7 @@ export default function MineMap({
     ) => {
       const validCellsList: GridCell[] = []
       
-      // Find grid bounding box
-      let gridMinLat = 90, gridMaxLat = -90, gridMinLng = 180, gridMaxLng = -180
-      if (hasBoundary) {
-        boundary!.coordinates.forEach(coord => {
-          if (coord[0] < gridMinLat) gridMinLat = coord[0]
-          if (coord[0] > gridMaxLat) gridMaxLat = coord[0]
-          if (coord[1] < gridMinLng) gridMinLng = coord[1]
-          if (coord[1] > gridMaxLng) gridMaxLng = coord[1]
-        })
-      } else if (ortofotoBounds) {
-        gridMinLat = Math.min(ortofotoBounds[0][0], ortofotoBounds[1][0])
-        gridMaxLat = Math.max(ortofotoBounds[0][0], ortofotoBounds[1][0])
-        gridMinLng = Math.min(ortofotoBounds[0][1], ortofotoBounds[1][1])
-        gridMaxLng = Math.max(ortofotoBounds[0][1], ortofotoBounds[1][1])
-      } else {
-        const cLat = mapConfig?.centerLat || -5.78957
-        const cLng = mapConfig?.centerLng || -50.53500
-        gridMinLat = cLat - 0.015
-        gridMaxLat = cLat + 0.015
-        gridMinLng = cLng - 0.015
-        gridMaxLng = cLng + 0.015
-      }
+      const [[gridMinLat, gridMinLng], [gridMaxLat, gridMaxLng]] = gridBounds
 
       const resolution = mapConfig?.gridResolution || 40
       const latStep = (gridMaxLat - gridMinLat) / resolution
@@ -756,9 +765,10 @@ export default function MineMap({
           // Compute signal from all visible repeaters
           computationRepeaters.forEach(r => {
             const dist = getDistanceMeters([r.latitude!, r.longitude!], [cellLat, cellLng])
-            if (dist <= r.range) {
+            const effectiveRange = liveHeatRadius
+            if (dist <= effectiveRange) {
               const obsMultiplier = calculateObstacleAttenuation([r.latitude!, r.longitude!], [cellLat, cellLng], obstacles)
-              const signal = calculatePathLoss(dist, r.model, obsMultiplier)
+              const signal = calculatePathLoss(dist, r.model, obsMultiplier, effectiveRange)
               if (signal > maxSignal) {
                 maxSignal = signal
               }
@@ -766,8 +776,8 @@ export default function MineMap({
           })
 
           let cellStatus: 'excellent' | 'good' | 'critical' | 'uncovered' = 'uncovered'
-          if (maxSignal >= 0.70) cellStatus = 'excellent'
-          else if (maxSignal >= 0.40) cellStatus = 'good'
+          if (maxSignal >= 0.55) cellStatus = 'excellent'
+          else if (maxSignal >= 0.15) cellStatus = 'good'
           else if (maxSignal > 0.00) cellStatus = 'critical'
 
           validCellsList.push({
@@ -796,6 +806,8 @@ export default function MineMap({
 
     return { baselineCells: base, currentGridCells: current }
   }, [
+    gridBounds,
+    liveHeatRadius,
     debouncedRepeatersKey,
     simulatedRepeater,
     deactivatedRepeaterIds,
@@ -1011,10 +1023,11 @@ export default function MineMap({
         let covers = 0
         activeNonDeact.forEach(r => {
           const dist = getDistanceMeters([r.latitude!, r.longitude!], [cell.lat, cell.lng])
-          if (dist <= r.range) {
+          const effectiveRange = liveHeatRadius
+          if (dist <= effectiveRange) {
             const obsMultiplier = calculateObstacleAttenuation([r.latitude!, r.longitude!], [cell.lat, cell.lng], obstacles)
-            const signal = calculatePathLoss(dist, r.model, obsMultiplier)
-            if (signal >= 0.40) {
+            const signal = calculatePathLoss(dist, r.model, obsMultiplier, effectiveRange)
+            if (signal >= 0.15) {
               covers++
             }
           }
@@ -1032,7 +1045,7 @@ export default function MineMap({
     let score = (coverage * 0.6) + ((100 - shadowPercent) * 0.2) + (redundancyIndex * 20) - Math.min(20, zonesCount * 4)
     
     return Math.max(0, Math.min(100, Math.round(score)))
-  }, [currentGridCells, currentStats, activeRepeaters, deactivatedRepeaterIds, obstacles])
+  }, [currentGridCells, currentStats, activeRepeaters, deactivatedRepeaterIds, obstacles, liveHeatRadius])
 
   // ----------------------------------------------------
   // REPEATER CRITICALITY & EXCLUSIVE COVERAGE ANALYSIS
@@ -1059,19 +1072,21 @@ export default function MineMap({
       baselineCells.forEach(cell => {
         // Did target cover this cell?
         const dist = getDistanceMeters([target.latitude!, target.longitude!], [cell.lat, cell.lng])
-        if (dist <= target.range) {
+        const targetEffectiveRange = liveHeatRadius
+        if (dist <= targetEffectiveRange) {
           const obsM = calculateObstacleAttenuation([target.latitude!, target.longitude!], [cell.lat, cell.lng], obstacles)
-          const sig = calculatePathLoss(dist, target.model, obsM)
+          const sig = calculatePathLoss(dist, target.model, obsM, targetEffectiveRange)
           
-          if (sig >= 0.40) {
+          if (sig >= 0.15) {
             // Is it covered by any other repeater?
             let coveredByOthers = false
             for (const other of otherActive) {
               const dOther = getDistanceMeters([other.latitude!, other.longitude!], [cell.lat, cell.lng])
-              if (dOther <= other.range) {
+              const otherEffectiveRange = liveHeatRadius
+              if (dOther <= otherEffectiveRange) {
                 const obsMO = calculateObstacleAttenuation([other.latitude!, other.longitude!], [cell.lat, cell.lng], obstacles)
-                const sigO = calculatePathLoss(dOther, other.model, obsMO)
-                if (sigO >= 0.40) {
+                const sigO = calculatePathLoss(dOther, other.model, obsMO, otherEffectiveRange)
+                if (sigO >= 0.15) {
                   coveredByOthers = true
                   break
                 }
@@ -1106,7 +1121,7 @@ export default function MineMap({
     })
 
     return list
-  }, [baselineCells, activeRepeaters, boundary?.coordinates, obstacles, hasBoundary])
+  }, [baselineCells, activeRepeaters, boundary?.coordinates, obstacles, hasBoundary, liveHeatRadius])
 
   // ----------------------------------------------------
   // INTERACTIVE EXPANSION ANALYSIS CALCULATOR
@@ -1147,6 +1162,67 @@ export default function MineMap({
     setSelectedZone(null)
     setHighlightedZoneId(null)
   }
+
+  const heatmapDataUrl = useMemo(() => {
+    if (typeof window === 'undefined' || currentGridCells.length === 0) return null
+
+    const resolution = mapConfig?.gridResolution || 40
+    const cellSize = 8 // scale canvas up for smoother interpolation
+    const width = resolution * cellSize
+    const height = resolution * cellSize
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    const [[gridMinLat, gridMinLng], [gridMaxLat, gridMaxLng]] = gridBounds
+
+    // 1. Clip canvas to boundary if configured
+    if (hasBoundary && boundary?.coordinates) {
+      ctx.beginPath()
+      boundary.coordinates.forEach((coord, index) => {
+        const pctX = (coord[1] - gridMinLng) / (gridMaxLng - gridMinLng)
+        const pctY = 1 - (coord[0] - gridMinLat) / (gridMaxLat - gridMinLat)
+        const cx = pctX * width
+        const cy = pctY * height
+        if (index === 0) ctx.moveTo(cx, cy)
+        else ctx.lineTo(cx, cy)
+      })
+      ctx.closePath()
+      ctx.clip()
+    }
+
+    // 2. Draw grid cells on canvas
+    currentGridCells.forEach(cell => {
+      if (cell.status === 'uncovered') return
+
+      let cellColor = '#22C55E' // critical/ruim -> Verde
+      if (cell.status === 'excellent') cellColor = '#EF4444' // excelente -> Vermelho
+      else if (cell.status === 'good') cellColor = '#EAB308' // bom -> Amarelo
+
+      const x = cell.j * cellSize
+      const y = (resolution - 1 - cell.i) * cellSize
+
+      ctx.fillStyle = cellColor
+      ctx.fillRect(x, y, cellSize, cellSize)
+    })
+
+    // 3. Create blurred image overlay
+    const blurredCanvas = document.createElement('canvas')
+    blurredCanvas.width = width
+    blurredCanvas.height = height
+    const blurredCtx = blurredCanvas.getContext('2d')
+    if (blurredCtx) {
+      const blurPx = Math.max(2, (liveHeatBlur / 100) * 16)
+      blurredCtx.filter = `blur(${blurPx}px)`
+      blurredCtx.drawImage(canvas, 0, 0)
+      return blurredCanvas.toDataURL()
+    }
+
+    return canvas.toDataURL()
+  }, [currentGridCells, gridBounds, hasBoundary, boundary?.coordinates, mapConfig?.gridResolution, liveHeatBlur, liveHeatIntensity])
 
   if (!mounted) return <div className="w-full h-screen bg-slate-100 animate-pulse" />
 
@@ -1251,46 +1327,15 @@ export default function MineMap({
               </Polygon>
             ))}
 
-            {/* HEATMAP LAYER — SVG radial gradient circles for physical coverage without blowout/saturation */}
-            {showGrid && (
-              <>
-                <svg key={`svg-grad-${liveHeatBlur}-${liveHeatIntensity}`} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
-                  <defs>
-                    <radialGradient id="signal-gradient" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#10B981" stopOpacity={liveHeatIntensity} />
-                      <stop offset={`${Math.max(10, 80 - liveHeatBlur)}%`} stopColor="#F59E0B" stopOpacity={liveHeatIntensity * 0.6} />
-                      <stop offset={`${Math.max(20, 95 - liveHeatBlur / 2)}%`} stopColor="#EF4444" stopOpacity={liveHeatIntensity * 0.2} />
-                      <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
-                    </radialGradient>
-                  </defs>
-                </svg>
-                {heatmapRepeaters.map(r => (
-                  <Circle
-                    key={`heat-${r.id}-${liveHeatRadius}-${liveHeatBlur}-${liveHeatIntensity}`}
-                    center={[r.latitude!, r.longitude!]}
-                    radius={liveHeatRadius}
-                    pathOptions={{
-                      fillColor: 'url(#signal-gradient)',
-                      fillOpacity: 1.0,
-                      stroke: false,
-                      interactive: false
-                    }}
-                  />
-                ))}
-                {simulatedRepeater && (
-                  <Circle
-                    key={`heat-simulated-${liveHeatRadius}-${liveHeatBlur}-${liveHeatIntensity}`}
-                    center={[simulatedRepeater.latitude, simulatedRepeater.longitude]}
-                    radius={liveHeatRadius}
-                    pathOptions={{
-                      fillColor: 'url(#signal-gradient)',
-                      fillOpacity: 1.0,
-                      stroke: false,
-                      interactive: false
-                    }}
-                  />
-                )}
-              </>
+            {/* HEATMAP LAYER — Render smooth dynamic canvas overlay */}
+            {showGrid && heatmapDataUrl && (
+              <ImageOverlay
+                url={heatmapDataUrl}
+                bounds={gridBounds as any}
+                opacity={liveHeatIntensity * 0.7}
+                interactive={false}
+                zIndex={400}
+              />
             )}
 
 
@@ -1387,7 +1432,7 @@ export default function MineMap({
                   <Marker
                     position={position}
                     icon={divIcon}
-                    draggable={!isDrawingBoundary}
+                    draggable={isAdmin && !isDrawingBoundary}
                     eventHandlers={{
                       dragend: async (e) => {
                         const marker = e.target
@@ -1419,43 +1464,45 @@ export default function MineMap({
                         </div>
 
                         {/* Interactive simulation controls in popup */}
-                        <div className="mt-2.5 pt-2.5 border-t grid grid-cols-2 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              if (isDeactivated) {
-                                setDeactivatedRepeaterIds(prev => prev.filter(id => id !== repeater.id))
-                              } else {
-                                setDeactivatedRepeaterIds(prev => [...prev, repeater.id])
-                              }
-                            }}
-                            className={`px-2 py-1 text-[10px] font-bold text-white rounded transition-colors text-center ${
-                              isDeactivated ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
-                            }`}
-                          >
-                            {isDeactivated ? 'Reativar' : 'Simular Falha'}
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              if (showIndividualCoverage && selectedRepeaterId === repeater.id) {
-                                setShowIndividualCoverage(false)
-                                setSelectedRepeaterId(null)
-                              } else {
-                                setShowIndividualCoverage(true)
-                                setSelectedRepeaterId(repeater.id)
-                              }
-                            }}
-                            className={`px-2 py-1 text-[10px] font-bold text-white rounded transition-colors text-center ${
-                              showIndividualCoverage && selectedRepeaterId === repeater.id ? 'bg-slate-600 hover:bg-slate-700' : 'bg-blue-600 hover:bg-blue-700'
-                            }`}
-                          >
-                            {showIndividualCoverage && selectedRepeaterId === repeater.id ? 'Ver Rede' : 'Ver Alcance'}
-                          </button>
-                        </div>
+                        {isAdmin && (
+                          <div className="mt-2.5 pt-2.5 border-t grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                if (isDeactivated) {
+                                  setDeactivatedRepeaterIds(prev => prev.filter(id => id !== repeater.id))
+                                } else {
+                                  setDeactivatedRepeaterIds(prev => [...prev, repeater.id])
+                                }
+                              }}
+                              className={`px-2 py-1 text-[10px] font-bold text-white rounded transition-colors text-center ${
+                                isDeactivated ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+                              }`}
+                            >
+                              {isDeactivated ? 'Reativar' : 'Simular Falha'}
+                            </button>
+                            
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                if (showIndividualCoverage && selectedRepeaterId === repeater.id) {
+                                  setShowIndividualCoverage(false)
+                                  setSelectedRepeaterId(null)
+                                } else {
+                                  setShowIndividualCoverage(true)
+                                  setSelectedRepeaterId(repeater.id)
+                                }
+                              }}
+                              className={`px-2 py-1 text-[10px] font-bold text-white rounded transition-colors text-center ${
+                                showIndividualCoverage && selectedRepeaterId === repeater.id ? 'bg-slate-600 hover:bg-slate-700' : 'bg-blue-600 hover:bg-blue-700'
+                              }`}
+                            >
+                              {showIndividualCoverage && selectedRepeaterId === repeater.id ? 'Ver Rede' : 'Ver Alcance'}
+                            </button>
+                          </div>
+                        )}
 
                         <form className="mt-2.5 pt-2.5 border-t" onSubmit={async (e) => {
                           e.preventDefault()
@@ -1512,15 +1559,15 @@ export default function MineMap({
                           <div className="grid grid-cols-2 gap-1.5 mt-1.5">
                             <div>
                               <label className="text-[9px] font-bold text-slate-400 uppercase">Latitude</label>
-                              <input type="number" name="lat" step="any" defaultValue={repeater.latitude || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5 font-mono" />
+                              <input type="number" name="lat" step="any" defaultValue={repeater.latitude || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5 font-mono disabled:opacity-50" disabled={!isAdmin} />
                             </div>
                             <div>
                               <label className="text-[9px] font-bold text-slate-400 uppercase">Longitude</label>
-                              <input type="number" name="lng" step="any" defaultValue={repeater.longitude || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5 font-mono" />
+                              <input type="number" name="lng" step="any" defaultValue={repeater.longitude || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5 font-mono disabled:opacity-50" disabled={!isAdmin} />
                             </div>
                           </div>
                           <button type="submit" className="w-full mt-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-semibold rounded cursor-pointer transition-colors">
-                            Atualizar Coordenadas
+                            {!isAdmin ? 'Atualizar com GPS do Celular' : 'Atualizar Coordenadas'}
                           </button>
                         </form>
                       </div>
@@ -1663,8 +1710,9 @@ export default function MineMap({
               </div>
 
               {/* Heatmap toggle row */}
-              <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-100">
-                <div className="flex items-center gap-1.5">
+              {isAdmin && (
+                <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500" />
                   <span className="text-[11px] font-medium text-slate-600">Mapa de Calor</span>
                 </div>
@@ -1691,19 +1739,20 @@ export default function MineMap({
                   </label>
                 </div>
               </div>
+              )}
 
               {/* Expandable heatmap settings */}
-              {showHeatSettings && showGrid && (
+              {isAdmin && showHeatSettings && showGrid && (
                 <div className="px-3.5 pt-2.5 pb-3 space-y-3">
 
                   {/* Gradient legend bar (live preview of color scale) */}
                   <div>
                     <div className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold mb-1">Escala de Sinal</div>
                     <div className="h-4 rounded-full w-full" style={{
-                      background: 'linear-gradient(to right, #EF4444, #F59E0B, #10B981)'
+                      background: 'linear-gradient(to right, #22C55E, #EAB308, #EF4444)'
                     }} />
                     <div className="flex justify-between mt-0.5">
-                      <span className="text-[8px] text-slate-400">Sem sinal</span>
+                      <span className="text-[8px] text-slate-400">Ruim</span>
                       <span className="text-[8px] text-slate-400">Excelente</span>
                     </div>
                   </div>
@@ -1792,6 +1841,27 @@ export default function MineMap({
             </div>
           </div>
 
+
+          {/* HEATMAP LEGEND OVERLAY */}
+          {showGrid && (
+            <div className="absolute bottom-12 left-3 z-[1000] select-none font-sans bg-white/95 backdrop-blur border border-slate-200/80 rounded-2xl shadow-lg p-3 text-[11px] w-[140px]">
+              <div className="font-bold text-slate-700 mb-2 uppercase tracking-wider text-[9px]">Qualidade do Sinal</div>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#EF4444] shadow" />
+                  <span className="text-slate-600 font-medium font-mono text-[10px]">Excelente</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#EAB308] shadow" />
+                  <span className="text-slate-600 font-medium font-mono text-[10px]">Bom</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#22C55E] shadow" />
+                  <span className="text-slate-600 font-medium font-mono text-[10px]">Ruim</span>
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
 
