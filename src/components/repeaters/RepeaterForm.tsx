@@ -22,6 +22,10 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
   const [loading, setLoading] = useState(false)
   const { t } = useTranslation()
 
+  const isRoot = initialData?.code.toUpperCase().startsWith('ROOT') || initialData?.name.toUpperCase().startsWith('ROOT')
+  const is320 = initialData?.code.toLowerCase().includes('320') || initialData?.name.toLowerCase().includes('320')
+  const isFixed = !!(isRoot || is320)
+
   return (
     <form 
       action={async (formData) => {
@@ -33,6 +37,13 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
       {initialData?.id && <input type="hidden" name="id" value={initialData.id} />}
       <input type="hidden" name="mineId" value={initialData?.mineId || 'default-mine'} />
       
+      {isFixed && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold flex items-center gap-2">
+          <span>⚠️</span>
+          <span>Este ponto está fixado como referência de calibração. Apenas o Status pode ser alterado.</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium text-slate-700">{t('repeaters.form.nameLabel')}</label>
@@ -41,7 +52,10 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
             name="name" 
             required
             defaultValue={initialData?.name}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
+            readOnly={isFixed}
+            className={`mt-1 block w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              isFixed ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed select-none' : 'text-slate-900 border-slate-300 focus:border-blue-500'
+            }`}
           />
         </div>
 
@@ -52,7 +66,10 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
             name="code" 
             required
             defaultValue={initialData?.code}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
+            readOnly={isFixed}
+            className={`mt-1 block w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              isFixed ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed select-none' : 'text-slate-900 border-slate-300 focus:border-blue-500'
+            }`}
           />
         </div>
 
@@ -63,7 +80,10 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
             name="model" 
             required
             defaultValue={initialData?.model}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
+            readOnly={isFixed}
+            className={`mt-1 block w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              isFixed ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed select-none' : 'text-slate-900 border-slate-300 focus:border-blue-500'
+            }`}
           />
         </div>
 
@@ -88,7 +108,10 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
             required
             min="1"
             defaultValue={initialData?.range || 100}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
+            readOnly={isFixed}
+            className={`mt-1 block w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              isFixed ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed select-none' : 'text-slate-900 border-slate-300 focus:border-blue-500'
+            }`}
           />
         </div>
 
@@ -98,7 +121,10 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
             name="notes" 
             rows={3}
             defaultValue={initialData?.notes || ''}
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" 
+            readOnly={isFixed}
+            className={`mt-1 block w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              isFixed ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed select-none' : 'text-slate-900 border-slate-300 focus:border-blue-500'
+            }`}
           />
         </div>
         

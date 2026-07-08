@@ -85,7 +85,14 @@ export default async function RepeatersPage({
                       >
                         <Edit2 className="w-4 h-4" />
                       </Link>
-                      <DeleteRepeaterButton id={repeater.id} lang={lang} />
+                      {!(
+                        repeater.code.toUpperCase().startsWith('ROOT') || 
+                        repeater.name.toUpperCase().startsWith('ROOT') || 
+                        repeater.code.toLowerCase().includes('320') || 
+                        repeater.name.toLowerCase().includes('320')
+                      ) && (
+                        <DeleteRepeaterButton id={repeater.id} lang={lang} />
+                      )}
                     </td>
                   </tr>
                 ))}
