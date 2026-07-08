@@ -118,7 +118,11 @@ function MapAutoFitter({
   defaultZoom: number
 }) {
   const map = useMap()
+  const hasFittedRef = useRef(false)
+
   useEffect(() => {
+    if (hasFittedRef.current) return
+
     map.invalidateSize()
 
     // Build a latLngBounds that covers image or boundary
@@ -132,8 +136,10 @@ function MapAutoFitter({
 
     if (bounds && bounds.isValid()) {
       map.fitBounds(bounds, { padding: [20, 20] })
+      hasFittedRef.current = true
     } else if (center && center[0] !== 0) {
       map.setView(center, defaultZoom || 15)
+      hasFittedRef.current = true
     }
   }, [boundaryCoords, imageBounds, center, defaultZoom, map])
   return null
