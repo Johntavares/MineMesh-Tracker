@@ -238,7 +238,7 @@ export default function MineMap({
 
   // Layers Toggles
   const [showOrtofoto, setShowOrtofoto] = useState(true)
-  const [showGrid, setShowGrid] = useState(true)
+  const [showGrid, setShowGrid] = useState(isAdmin)
   const [showLayerMenu, setShowLayerMenu] = useState(false)
 
   // Live heatmap configuration (editable directly on the map)
@@ -1328,7 +1328,7 @@ export default function MineMap({
             ))}
 
             {/* HEATMAP LAYER — Render smooth dynamic canvas overlay */}
-            {showGrid && heatmapDataUrl && (
+            {isAdmin && showGrid && heatmapDataUrl && (
               <ImageOverlay
                 url={heatmapDataUrl}
                 bounds={gridBounds as any}
@@ -1843,7 +1843,7 @@ export default function MineMap({
 
 
           {/* HEATMAP LEGEND OVERLAY */}
-          {showGrid && (
+          {isAdmin && showGrid && (
             <div className="absolute bottom-12 left-3 z-[1000] select-none font-sans bg-white/95 backdrop-blur border border-slate-200/80 rounded-2xl shadow-lg p-3 text-[11px] w-[140px]">
               <div className="font-bold text-slate-700 mb-2 uppercase tracking-wider text-[9px]">Qualidade do Sinal</div>
               <div className="space-y-1.5">
