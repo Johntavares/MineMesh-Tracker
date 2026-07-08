@@ -1369,7 +1369,8 @@ export default function MineMap({
                 ? '#F59E0B' 
                 : '#EF4444'
 
-              const isRoot = repeater.code.toUpperCase().startsWith('ROOT-')
+              const isRoot = repeater.code.toUpperCase().startsWith('ROOT') || repeater.name.toUpperCase().startsWith('ROOT')
+              const isFixed = isRoot || repeater.code.toLowerCase().includes('320') || repeater.name.toLowerCase().includes('320')
 
               // Custom SVG icons representing the actual physical Rajant and JR3 devices
               const isRajant = repeater.model.toLowerCase().includes('rajant')
@@ -1444,7 +1445,7 @@ export default function MineMap({
                   <Marker
                     position={position}
                     icon={divIcon}
-                    draggable={isAdmin && !isDrawingBoundary}
+                    draggable={isAdmin && !isDrawingBoundary && !isFixed}
                     eventHandlers={{
                       dragend: async (e) => {
                         const marker = e.target
@@ -1516,72 +1517,78 @@ export default function MineMap({
                           </div>
                         )}
 
-                        <form className="mt-2.5 pt-2.5 border-t" onSubmit={async (e) => {
-                          e.preventDefault()
-                          const form = e.currentTarget
-                          const desc = (form.elements.namedItem('desc') as HTMLInputElement).value
-                          const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement
-                          
-                          if (submitBtn) {
-                            submitBtn.disabled = true
-                            submitBtn.textContent = 'Obtendo GPS do Celular...'
-                          }
-
-                          const fallbackToInputs = async () => {
-                            const latInput = form.elements.namedItem('lat') as HTMLInputElement
-                            const lngInput = form.elements.namedItem('lng') as HTMLInputElement
-                            const lat = latInput ? Number(latInput.value) : null
-                            const lng = lngInput ? Number(lngInput.value) : null
-                            if (lat !== null && !isNaN(lat) && lng !== null && !isNaN(lng)) {
-                              await handleLocationUpdate(repeater.id, lat, lng, desc)
-                            } else {
-                              alert('Não foi possível obter a localização do GPS e as coordenadas manuais estão em branco.')
-                            }
+                        {!isFixed ? (
+                          <form className="mt-2.5 pt-2.5 border-t" onSubmit={async (e) => {
+                            e.preventDefault()
+                            const form = e.currentTarget
+                            const desc = (form.elements.namedItem('desc') as HTMLInputElement).value
+                            const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement
+                            
                             if (submitBtn) {
-                              submitBtn.disabled = false
-                              submitBtn.textContent = 'Atualizar Coordenadas'
+                              submitBtn.disabled = true
+                              submitBtn.textContent = 'Obtendo GPS do Celular...'
                             }
-                          }
 
-                          if ('geolocation' in navigator) {
-                            navigator.geolocation.getCurrentPosition(
-                              async (position) => {
-                                const lat = position.coords.latitude
-                                const lng = position.coords.longitude
+                            const fallbackToInputs = async () => {
+                              const latInput = form.elements.namedItem('lat') as HTMLInputElement
+                              const lngInput = form.elements.namedItem('lng') as HTMLInputElement
+                              const lat = latInput ? Number(latInput.value) : null
+                              const lng = lngInput ? Number(lngInput.value) : null
+                              if (lat !== null && !isNaN(lat) && lng !== null && !isNaN(lng)) {
                                 await handleLocationUpdate(repeater.id, lat, lng, desc)
-                                if (submitBtn) {
-                                  submitBtn.disabled = false
-                                  submitBtn.textContent = 'Atualizar Coordenadas'
-                                }
-                              },
-                              async (error) => {
-                                console.warn('GPS error, falling back to manual inputs:', error)
-                                await fallbackToInputs()
-                              },
-                              { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
-                            )
-                          } else {
-                            await fallbackToInputs()
-                          }
-                        }}>
-                          <div>
-                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Descrição Localização / Referência</label>
-                            <input type="text" name="desc" defaultValue={repeater.locationDescription || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                              } else {
+                                alert('Não foi possível obter a localização do GPS e as coordenadas manuais estão em branco.')
+                              }
+                              if (submitBtn) {
+                                submitBtn.disabled = false
+                                submitBtn.textContent = 'Atualizar Coordenadas'
+                              }
+                            }
+
+                            if ('geolocation' in navigator) {
+                              navigator.geolocation.getCurrentPosition(
+                                async (position) => {
+                                  const lat = position.coords.latitude
+                                  const lng = position.coords.longitude
+                                  await handleLocationUpdate(repeater.id, lat, lng, desc)
+                                  if (submitBtn) {
+                                    submitBtn.disabled = false
+                                    submitBtn.textContent = 'Atualizar Coordenadas'
+                                  }
+                                },
+                                async (error) => {
+                                  console.warn('GPS error, falling back to manual inputs:', error)
+                                  await fallbackToInputs()
+                                },
+                                { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+                              )
+                            } else {
+                              await fallbackToInputs()
+                            }
+                          }}>
                             <div>
-                              <label className="text-[9px] font-bold text-slate-400 uppercase">Latitude</label>
-                              <input type="number" name="lat" step="any" defaultValue={repeater.latitude || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5 font-mono disabled:opacity-50" disabled={!isAdmin} />
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Descrição Localização / Referência</label>
+                              <input type="text" name="desc" defaultValue={repeater.locationDescription || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5" />
                             </div>
-                            <div>
-                              <label className="text-[9px] font-bold text-slate-400 uppercase">Longitude</label>
-                              <input type="number" name="lng" step="any" defaultValue={repeater.longitude || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5 font-mono disabled:opacity-50" disabled={!isAdmin} />
+                            <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                              <div>
+                                <label className="text-[9px] font-bold text-slate-400 uppercase">Latitude</label>
+                                <input type="number" name="lat" step="any" defaultValue={repeater.latitude || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5 font-mono disabled:opacity-50" disabled={!isAdmin} />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-bold text-slate-400 uppercase">Longitude</label>
+                                <input type="number" name="lng" step="any" defaultValue={repeater.longitude || ''} className="w-full text-[11px] px-1.5 py-1 border rounded mt-0.5 font-mono disabled:opacity-50" disabled={!isAdmin} />
+                              </div>
                             </div>
+                            <button type="submit" className="w-full mt-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-semibold rounded cursor-pointer transition-colors">
+                              {!isAdmin ? 'Atualizar com GPS do Celular' : 'Atualizar Coordenadas'}
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="mt-2.5 pt-2.5 border-t text-[10px] text-slate-500 font-semibold text-center bg-slate-50 p-2 rounded-xl border border-slate-200/50 flex items-center justify-center gap-1.5">
+                            <span className="text-slate-400">🔒</span> Este ponto está fixado como referência.
                           </div>
-                          <button type="submit" className="w-full mt-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-semibold rounded cursor-pointer transition-colors">
-                            {!isAdmin ? 'Atualizar com GPS do Celular' : 'Atualizar Coordenadas'}
-                          </button>
-                        </form>
+                        )}
                       </div>
                     </Popup>
                   </Marker>
