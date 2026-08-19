@@ -29,6 +29,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
+
+# scratch and ad-hoc scripts
+/scratch
+/prisma/*.py
+/prisma/utm_bounds.txt
+
+# user-uploaded evidence photos
+/public/uploads/cleaning/
 
 # env files (can opt-in for committing if needed)
 .env*
