@@ -14,6 +14,7 @@
     "back": "Voltar",
     "confirm": "Confirmar",
     "search": "Buscar",
+    "close": "Fechar",
     "noData": "Nenhum registro encontrado.",
     "online": "Online",
     "offline": "Offline",
@@ -37,6 +38,7 @@
     "dashboard": "Dashboard",
     "map": "Mapa",
     "repeaters": "Repetidoras",
+    "cleaning": "Limpeza",
     "logs": "Logs",
     "settings": "Configurações"
   },
@@ -113,6 +115,38 @@
     "details": "Detalhes",
     "noLogs": "Nenhum log registrado ainda."
   },
+  "cleaning": {
+    "title": "Controle de Limpeza Semanal",
+    "week": "Semana",
+    "cleanedThisWeek": "Limpos esta semana",
+    "cleaned": "Limpo",
+    "pending": "Pendentes",
+    "pendingCleaning": "Pendente",
+    "allClean": "Todas as repetidoras foram limpas esta semana!",
+    "noRepeaters": "Nenhuma repetidora encontrada. Cadastre repetidoras primeiro.",
+    "uploadPhoto": "Tirar foto da limpeza",
+    "changePhoto": "Trocar foto",
+    "notesPlaceholder": "Observações (opcional)",
+    "send": "Enviar evidência",
+    "sending": "Enviando...",
+    "photoRequired": "Selecione uma foto como evidência.",
+    "success": "Evidência enviada com sucesso!",
+    "error": "Erro ao enviar evidência.",
+    "viewEvidence": "Ver foto",
+    "updateEvidence": "Atualizar evidência",
+    "view": "Ver",
+    "cleaningStatus": "Status da Limpeza",
+    "lastCleaning": "Última Limpeza",
+    "thisWeek": "esta semana",
+    "noEvidence": "Nenhuma evidência enviada para esta semana.",
+    "locationHint": "A localização do dispositivo será usada para atualizar a repetidora no mapa.",
+    "locationSaved": "Localização capturada! Repetidora atualizada no mapa.",
+    "locationUnavailable": "Localização indisponível. Enviar sem atualizar o mapa.",
+    "location": "Localização",
+    "noLocation": "Não informada",
+    "updatedAt": "Atualizado em",
+    "pendingDescription": "Limpeza pendente nesta semana. Envie a foto como evidência."
+  },
   "settings": {
     "title": "Configurações do Sistema",
     "mapImage": "Imagem do Mapa da Mina",
@@ -142,6 +176,7 @@
     "deleteRepeater": "Erro ao excluir repetidora",
     "saveRepeater": "Falha ao salvar repetidora.",
     "saveMapSettings": "Falha ao salvar configurações do mapa.",
-    "updateRepeaterLocation": "Erro ao atualizar localização da repetidora."
+    "updateRepeaterLocation": "Erro ao atualizar localização da repetidora.",
+    "saveCleaning": "Falha ao salvar evidência de limpeza."
   }
 }

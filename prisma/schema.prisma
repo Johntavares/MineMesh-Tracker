@@ -22,6 +22,7 @@ model User {
   
   logs      AuditLog[]
   repeaters Repeater[] @relation("RepeaterUpdater")
+  cleaningRecords CleaningRecord[] @relation("CleaningBy")
   accounts  Account[]
   sessions  Session[]
 }
@@ -87,11 +88,32 @@ model Repeater {
   updatedById String?
   updatedBy   User?    @relation("RepeaterUpdater", fields: [updatedById], references: [id])
   
+  cleaningRecords CleaningRecord[]
+  
   version   Int       @default(1)
   deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model CleaningRecord {
+  id          String   @id @default(cuid())
+  syncId      String   @unique @default(cuid())
+  repeaterId  String
+  repeater    Repeater @relation(fields: [repeaterId], references: [id], onDelete: Cascade)
+  weekStart   DateTime // Monday of the week this cleaning was performed (local time)
+  photoUrl    String
+  notes       String?
+  latitude    Float?   // GPS captured at upload time
+  longitude   Float?   // GPS captured at upload time
+  cleanedById String?
+  cleanedBy   User?    @relation("CleaningBy", fields: [cleanedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([repeaterId, weekStart])
 }
 
 model Obstacle {

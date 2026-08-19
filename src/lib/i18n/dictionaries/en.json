@@ -14,6 +14,7 @@
     "back": "Back",
     "confirm": "Confirm",
     "search": "Search",
+    "close": "Close",
     "noData": "No records found.",
     "online": "Online",
     "offline": "Offline",
@@ -37,6 +38,7 @@
     "dashboard": "Dashboard",
     "map": "Map",
     "repeaters": "Repeaters",
+    "cleaning": "Cleaning",
     "logs": "Logs",
     "settings": "Settings"
   },
@@ -113,6 +115,38 @@
     "details": "Details",
     "noLogs": "No logs recorded yet."
   },
+  "cleaning": {
+    "title": "Weekly Cleaning Control",
+    "week": "Week",
+    "cleanedThisWeek": "Cleaned this week",
+    "cleaned": "Cleaned",
+    "pending": "Pending",
+    "pendingCleaning": "Pending",
+    "allClean": "All repeaters cleaned this week!",
+    "noRepeaters": "No repeaters found. Register repeaters first.",
+    "uploadPhoto": "Take cleaning photo",
+    "changePhoto": "Change photo",
+    "notesPlaceholder": "Notes (optional)",
+    "send": "Send evidence",
+    "sending": "Sending...",
+    "photoRequired": "Select a photo as evidence.",
+    "success": "Evidence sent successfully!",
+    "error": "Error sending evidence.",
+    "viewEvidence": "View photo",
+    "updateEvidence": "Update evidence",
+    "view": "View",
+    "cleaningStatus": "Cleaning Status",
+    "lastCleaning": "Last Cleaning",
+    "thisWeek": "this week",
+    "noEvidence": "No evidence sent for this week.",
+    "locationHint": "The device location will be used to update the repeater on the map.",
+    "locationSaved": "Location captured! Repeater updated on the map.",
+    "locationUnavailable": "Location unavailable. Sending without updating the map.",
+    "location": "Location",
+    "noLocation": "Not provided",
+    "updatedAt": "Updated at",
+    "pendingDescription": "Cleaning pending this week. Send the photo as evidence."
+  },
   "settings": {
     "title": "System Settings",
     "mapImage": "Mine Map Image",
@@ -142,6 +176,7 @@
     "deleteRepeater": "Error deleting repeater",
     "saveRepeater": "Failed to save repeater.",
     "saveMapSettings": "Failed to save map settings.",
-    "updateRepeaterLocation": "Failed to update repeater location."
+    "updateRepeaterLocation": "Failed to update repeater location.",
+    "saveCleaning": "Failed to save cleaning evidence."
   }
 }
