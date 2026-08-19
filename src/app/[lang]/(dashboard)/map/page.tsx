@@ -22,20 +22,25 @@ export default async function MapPage({
 
 
   // Fetch the default mine and its georeferenced entities
-  const mine = await prisma.mine.findUnique({
-    where: { id: 'default-mine' },
-    include: {
-      repeaters: {
-        where: { deletedAt: null },
-        include: {
-          updatedBy: true
-        }
-      },
-      obstacles: {
-        where: { deletedAt: null }
-      },
-    }
-  })
+  let mine: any = null
+  try {
+    mine = await prisma.mine.findUnique({
+      where: { id: 'default-mine' },
+      include: {
+        repeaters: {
+          where: { deletedAt: null },
+          include: {
+            updatedBy: true
+          }
+        },
+        obstacles: {
+          where: { deletedAt: null }
+        },
+      }
+    })
+  } catch (e) {
+    console.warn('[MAP] Database query failed, using fallback mine configuration:', e)
+  }
 
   // Fallback map config if no mine is configured yet
   const mapConfig = mine ? {

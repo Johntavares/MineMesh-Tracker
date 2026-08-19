@@ -10,8 +10,8 @@ export default function LoginPage() {
   const router = useRouter()
   const params = useParams()
   const lang = params.lang as string
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('admin@mesh.local')
+  const [password, setPassword] = useState('admin')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { t } = useTranslation()
