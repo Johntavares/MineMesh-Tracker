@@ -6,19 +6,7 @@ import { useTranslation } from '@/lib/i18n/client'
 import { saveCleaning } from '@/app/actions/cleaning'
 import { Camera, Upload, CheckCircle2, Loader2, MapPin } from 'lucide-react'
 
-function getPosition(): Promise<{ lat: number; lng: number } | null> {
-  return new Promise((resolve) => {
-    if (!('geolocation' in navigator)) {
-      resolve(null)
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 4000, maximumAge: 30000 }
-    )
-  })
-}
+
 
 export function CleaningUploadForm({
   repeaterId,
@@ -34,7 +22,6 @@ export function CleaningUploadForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'found' | 'unavailable'>('idle')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -59,15 +46,8 @@ export function CleaningUploadForm({
     setLoading(true)
     setError('')
 
-    const position = await getPosition()
-    setLocationStatus(position ? 'found' : 'unavailable')
-
     const formData = new FormData(form)
     formData.set('repeaterId', repeaterId)
-    if (position) {
-      formData.set('latitude', String(position.lat))
-      formData.set('longitude', String(position.lng))
-    }
 
     const result = await saveCleaning(formData)
 
@@ -126,13 +106,16 @@ export function CleaningUploadForm({
         className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
       />
 
-      <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
-        <MapPin className="w-3 h-3 shrink-0" />
-        {locationStatus === 'found'
-          ? t('cleaning.locationSaved')
-          : locationStatus === 'unavailable'
-            ? t('cleaning.locationUnavailable')
-            : t('cleaning.locationHint')}
+      <input
+        type="text"
+        name="team"
+        placeholder="Nome da Equipe (opcional)"
+        className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
+      <p className="flex items-start gap-1.5 text-[11px] text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
+        <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+        <span>A foto <strong>DEVE</strong> conter a localização ativada (GPS) nas configurações da câmera do seu celular para comprovar a presença na repetidora.</span>
       </p>
 
       <button

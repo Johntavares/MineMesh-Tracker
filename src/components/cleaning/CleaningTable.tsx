@@ -25,6 +25,8 @@ export type CleaningRepeaterRow = {
     notes: string | null
     createdAt: string
     cleanedBy: string | null
+    team: string | null
+    photoDate: string | null
     latitude: number | null
     longitude: number | null
   } | null
@@ -87,9 +89,24 @@ export function CleaningTable({ repeaters }: { repeaters: CleaningRepeaterRow[] 
                 <p className="font-mono text-[9px] sm:text-[11px] font-bold text-slate-800 leading-tight truncate">
                   {repeater.code}
                 </p>
-                <p className="hidden sm:block text-[9px] text-slate-400 truncate">
-                  {repeater.name}
-                </p>
+                {cleaned && repeater.currentCleaning ? (
+                  <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-500 mt-1">
+                    <span className="truncate flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {repeater.currentCleaning.team || 'N/A'}
+                    </span>
+                    <span className="truncate flex items-center gap-1">
+                      <CalendarClock className="w-3 h-3" />
+                      {repeater.currentCleaning.photoDate
+                        ? new Date(repeater.currentCleaning.photoDate).toLocaleDateString('pt-BR')
+                        : new Date(repeater.currentCleaning.createdAt).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 truncate mt-1">
+                    {t('cleaning.pendingDescription') || 'Limpeza pendente'}
+                  </p>
+                )}
               </div>
             </button>
           )
@@ -157,7 +174,7 @@ export function CleaningTable({ repeaters }: { repeaters: CleaningRepeaterRow[] 
                         {t('cleaning.cleaned')}
                       </p>
                       <p className="mt-1 text-xs text-slate-600">
-                        {new Date(selected.currentCleaning.createdAt).toLocaleString('pt-BR')}
+                        {selected.currentCleaning.photoDate ? new Date(selected.currentCleaning.photoDate).toLocaleString('pt-BR') : new Date(selected.currentCleaning.createdAt).toLocaleString('pt-BR')}
                       </p>
                     </div>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
@@ -192,7 +209,11 @@ export function CleaningTable({ repeaters }: { repeaters: CleaningRepeaterRow[] 
                     </p>
                     <p className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-slate-400" />
-                      {selected.currentCleaning.cleanedBy || t('auth.system')}
+                      Equipe: {selected.currentCleaning.team || 'N/A'}
+                    </p>
+                    <p className="flex items-center gap-2 text-xs">
+                      <Users className="w-3 h-3 text-slate-300" />
+                      Enviado por: {selected.currentCleaning.cleanedBy || t('auth.system')}
                     </p>
                     {selected.currentCleaning.notes && (
                       <p className="text-slate-500 italic bg-slate-50 rounded-lg px-3 py-2">

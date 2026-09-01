@@ -51,6 +51,8 @@ export default async function CleaningPage({
             notes: record.notes,
             createdAt: record.createdAt.toISOString(),
             cleanedBy: record.cleanedBy?.name ?? null,
+            team: record.team,
+            photoDate: record.photoDate ? record.photoDate.toISOString() : null,
             latitude: record.latitude,
             longitude: record.longitude,
           }

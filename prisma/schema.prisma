@@ -105,10 +105,12 @@ model CleaningRecord {
   weekStart   DateTime // Monday of the week this cleaning was performed (local time)
   photoUrl    String
   notes       String?
-  latitude    Float?   // GPS captured at upload time
-  longitude   Float?   // GPS captured at upload time
+  latitude    Float?   // GPS captured from EXIF
+  longitude   Float?   // GPS captured from EXIF
   cleanedById String?
   cleanedBy   User?    @relation("CleaningBy", fields: [cleanedById], references: [id])
+  team        String?  // Team that performed the cleaning
+  photoDate   DateTime? // Date extracted from EXIF
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

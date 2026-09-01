@@ -12,6 +12,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { getWeekStart } from '@/lib/cleaning'
 import { updateRepeaterLocation } from './repeaters'
+import exifr from 'exifr'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic']
@@ -60,16 +61,32 @@ export async function saveCleaning(formData: FormData) {
 
     const session = await getServerSession(authOptions)
     const weekStart = getWeekStart()
+    const team = (formData.get('team') as string) || null
 
-    const latRaw = formData.get('latitude')
-    const lngRaw = formData.get('longitude')
-    const latitude = latRaw !== null ? Number(latRaw) : null
-    const longitude = lngRaw !== null ? Number(lngRaw) : null
-    const hasLocation =
-      latitude !== null &&
-      longitude !== null &&
-      !Number.isNaN(latitude) &&
-      !Number.isNaN(longitude)
+    let latitude: number | null = null
+    let longitude: number | null = null
+    let photoDate: Date | null = null
+
+    try {
+      const exifData = await exifr.parse(buffer)
+      if (exifData) {
+        if (exifData.latitude !== undefined && exifData.longitude !== undefined) {
+          latitude = exifData.latitude
+          longitude = exifData.longitude
+        }
+        if (exifData.DateTimeOriginal) {
+          photoDate = new Date(exifData.DateTimeOriginal)
+        }
+      }
+    } catch (e) {
+      console.warn('[CLEANING] Failed to parse EXIF', e)
+    }
+
+    if (latitude === null || longitude === null) {
+      return { success: false, error: 'A foto não contém dados de localização (GPS). Por favor, ative a localização na câmera do seu celular e tire uma nova foto no local.' }
+    }
+
+    const hasLocation = true
 
     const record = await prisma.cleaningRecord.upsert({
       where: {
@@ -81,8 +98,10 @@ export async function saveCleaning(formData: FormData) {
       update: {
         photoUrl,
         notes,
-        latitude: hasLocation ? latitude : null,
-        longitude: hasLocation ? longitude : null,
+        latitude,
+        longitude,
+        team,
+        photoDate,
         cleanedById: session?.user?.id || null,
       },
       create: {
@@ -90,8 +109,10 @@ export async function saveCleaning(formData: FormData) {
         weekStart,
         photoUrl,
         notes,
-        latitude: hasLocation ? latitude : null,
-        longitude: hasLocation ? longitude : null,
+        latitude,
+        longitude,
+        team,
+        photoDate,
         cleanedById: session?.user?.id || null,
       },
     })
@@ -103,6 +124,7 @@ export async function saveCleaning(formData: FormData) {
         newValues: {
           photoUrl,
           notes,
+          team,
           weekStart: weekStart.toISOString(),
           latitude,
           longitude,
