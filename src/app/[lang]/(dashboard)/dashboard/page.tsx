@@ -83,7 +83,10 @@ export default async function DashboardPage({
       <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
         <h1 className="text-xl sm:text-3xl font-bold text-slate-900 mb-4 sm:mb-8">{dict.dashboard.title}</h1>
         
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:gap-6">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3 mt-4 sm:mt-0">
+          {dict.dashboard.networkStatus}
+        </h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:gap-6 mb-8">
           <div className="bg-white p-3 sm:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
             <div className="p-2 sm:p-4 bg-blue-100 rounded-lg text-blue-600 mr-3 sm:mr-4 shrink-0">
               <Radio className="w-5 h-5 sm:w-8 sm:h-8" />
@@ -123,7 +126,12 @@ export default async function DashboardPage({
               <p className="text-xl sm:text-3xl font-bold text-slate-800">{maintenance}</p>
             </div>
           </div>
+        </div>
 
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">
+          {dict.cleaning.title}
+        </h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:gap-6 mb-8">
           <div className="bg-white p-3 sm:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
             <div className="p-2 sm:p-4 bg-teal-100 rounded-lg text-teal-600 mr-3 sm:mr-4 shrink-0">
               <CheckCircle className="w-5 h-5 sm:w-8 sm:h-8" />
