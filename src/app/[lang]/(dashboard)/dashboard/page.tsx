@@ -83,13 +83,13 @@ export default async function DashboardPage({
       <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
         <h1 className="text-xl sm:text-3xl font-bold text-slate-900 mb-4 sm:mb-8">{dict.dashboard.title}</h1>
         
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6 lg:gap-6">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:gap-6">
           <div className="bg-white p-3 sm:p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
             <div className="p-2 sm:p-4 bg-blue-100 rounded-lg text-blue-600 mr-3 sm:mr-4 shrink-0">
               <Radio className="w-5 h-5 sm:w-8 sm:h-8" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.dashboard.totalRepeaters}</p>
+              <p className="text-xs sm:text-sm font-medium text-slate-500 leading-tight">{dict.dashboard.totalRepeaters}</p>
               <p className="text-xl sm:text-3xl font-bold text-slate-800">{total}</p>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default async function DashboardPage({
               <Signal className="w-5 h-5 sm:w-8 sm:h-8" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.dashboard.online}</p>
+              <p className="text-xs sm:text-sm font-medium text-slate-500 leading-tight">{dict.dashboard.online}</p>
               <p className="text-xl sm:text-3xl font-bold text-slate-800">{online}</p>
             </div>
           </div>
@@ -109,7 +109,7 @@ export default async function DashboardPage({
               <PowerOff className="w-5 h-5 sm:w-8 sm:h-8" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.dashboard.offline}</p>
+              <p className="text-xs sm:text-sm font-medium text-slate-500 leading-tight">{dict.dashboard.offline}</p>
               <p className="text-xl sm:text-3xl font-bold text-slate-800">{offline}</p>
             </div>
           </div>
@@ -119,7 +119,7 @@ export default async function DashboardPage({
               <AlertTriangle className="w-5 h-5 sm:w-8 sm:h-8" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.dashboard.maintenance}</p>
+              <p className="text-xs sm:text-sm font-medium text-slate-500 leading-tight">{dict.dashboard.maintenance}</p>
               <p className="text-xl sm:text-3xl font-bold text-slate-800">{maintenance}</p>
             </div>
           </div>
@@ -129,7 +129,7 @@ export default async function DashboardPage({
               <CheckCircle className="w-5 h-5 sm:w-8 sm:h-8" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.cleaning.cleaned}</p>
+              <p className="text-xs sm:text-sm font-medium text-slate-500 leading-tight">{dict.cleaning.cleaned}</p>
               <p className="text-xl sm:text-3xl font-bold text-slate-800">{cleanedCount}</p>
             </div>
           </div>
@@ -139,7 +139,7 @@ export default async function DashboardPage({
               <XCircle className="w-5 h-5 sm:w-8 sm:h-8" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{dict.cleaning.pending}</p>
+              <p className="text-xs sm:text-sm font-medium text-slate-500 leading-tight">{dict.cleaning.pending}</p>
               <p className="text-xl sm:text-3xl font-bold text-slate-800">{pendingCount}</p>
             </div>
           </div>
