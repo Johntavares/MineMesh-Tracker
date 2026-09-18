@@ -2,7 +2,7 @@
   "name": "Mesh Monitor",
   "short_name": "Mesh Monitor",
   "description": "Sistema de Monitoramento de Repetidoras e Malha Mesh",
-  "start_url": "/",
+  "start_url": "/pt-BR/login",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#1e293b",
