@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html className="h-full bg-slate-50">
+    <html lang="pt-BR" className="h-full bg-slate-50">
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#1e293b" />
