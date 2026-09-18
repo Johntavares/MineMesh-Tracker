@@ -9,9 +9,9 @@ export const metadata: Metadata = {
   title: 'Mesh Monitor',
   description: 'Mesh repeater monitoring system',
   icons: {
-    icon: '/icon-192.png',
-    shortcut: '/icon-192.png',
-    apple: '/icon-192.png',
+    icon: '/icon-192.png?v=2',
+    shortcut: '/icon-192.png?v=2',
+    apple: '/icon-192.png?v=2',
   }
 }
 
@@ -25,8 +25,8 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#1e293b" />
-        <link rel="icon" href="/icon-192.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="icon" href="/icon-192.png?v=2" type="image/png" />
+        <link rel="apple-touch-icon" href="/icon-192.png?v=2" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <script
