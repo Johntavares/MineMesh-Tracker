@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mesh-monitor-v3';
+const CACHE_NAME = 'mesh-monitor-v4';
 const ASSETS_TO_CACHE = [
   '/manifest.json',
   '/icon-192.png',
@@ -58,8 +58,15 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       }).catch(() => {
         if (event.request.mode === 'navigate') {
-          return caches.match('/');
+          return caches.match('/').then(res => {
+            if (res) return res;
+            return new Response(
+              '<!DOCTYPE html><html><head><title>Offline</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="background:#1e293b;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;text-align:center;flex-direction:column;"><h2>Voc\u00ea est\u00e1 Offline</h2><p>Verifique sua conex\u00e3o e tente novamente.</p><button onclick="window.location.reload()" style="margin-top:20px;padding:10px 20px;background:#2563eb;color:white;border:none;border-radius:5px;cursor:pointer;">Tentar Novamente</button></body></html>',
+              { status: 200, headers: { 'Content-Type': 'text/html' } }
+            );
+          });
         }
+        return new Response('Network error happened', { status: 408, headers: { 'Content-Type': 'text/plain' } });
       });
     })
   );
