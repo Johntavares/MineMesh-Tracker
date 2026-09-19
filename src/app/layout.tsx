@@ -15,6 +15,8 @@ export const metadata: Metadata = {
   }
 }
 
+import { PwaRegistration } from '@/components/PwaRegistration'
+
 export default function RootLayout({
   children,
 }: {
@@ -29,23 +31,9 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png?v=2" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').then(function(reg) {
-                    console.log('PWA ServiceWorker registered with scope: ', reg.scope);
-                  }).catch(function(err) {
-                    console.log('PWA ServiceWorker registration failed: ', err);
-                  });
-                });
-              }
-            `,
-          }}
-        />
       </head>
       <body className={`${inter.className} h-full antialiased`}>
+        <PwaRegistration />
         <Providers>
           {children}
         </Providers>
