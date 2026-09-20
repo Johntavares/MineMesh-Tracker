@@ -21,6 +21,12 @@ export async function generateMetadata({
   return {
     title: dict.brand.title,
     description: dict.brand.description,
+    manifest: '/manifest.json',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'black-translucent',
+      title: dict.brand.title,
+    },
     icons: {
       icon: '/icon-192.png',
       shortcut: '/icon-192.png',

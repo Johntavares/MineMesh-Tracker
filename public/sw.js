@@ -32,6 +32,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Only intercept GET requests
   if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith('http')) return;
 
   // Do not intercept hot-reloading next.js developer files or server actions
   if (event.request.url.includes('/_next/') || event.request.url.includes('/api/')) {
