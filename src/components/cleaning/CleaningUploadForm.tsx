@@ -4,15 +4,15 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/lib/i18n/client'
 import { saveCleaning } from '@/app/actions/cleaning'
-import { Camera, Upload, CheckCircle2, Loader2, MapPin } from 'lucide-react'
-
-
+import { Camera, Upload, CheckCircle2, Loader2, MapPin, ShieldCheck } from 'lucide-react'
 
 export function CleaningUploadForm({
   repeaterId,
+  userRole = 'OPERATOR',
   onDone,
 }: {
   repeaterId: string
+  userRole?: string
   onDone?: () => void
 }) {
   const router = useRouter()
@@ -22,6 +22,8 @@ export function CleaningUploadForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+
+  const isAdmin = userRole === 'ADMIN'
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -74,18 +76,26 @@ export function CleaningUploadForm({
         className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed text-sm font-medium transition-colors ${
           preview
             ? 'border-emerald-400 text-emerald-600 bg-emerald-50'
-            : 'border-slate-300 text-slate-500 hover:border-blue-400 hover:text-blue-600 bg-slate-50'
+            : isAdmin
+            ? 'border-blue-300 text-blue-600 hover:border-blue-500 hover:bg-blue-50/50 bg-slate-50'
+            : 'border-emerald-300 text-emerald-700 hover:border-emerald-500 hover:bg-emerald-50/50 bg-slate-50'
         }`}
       >
         <Camera className="w-4 h-4" />
-        {preview ? t('cleaning.changePhoto') : t('cleaning.uploadPhoto')}
+        {preview
+          ? t('cleaning.changePhoto')
+          : isAdmin
+          ? 'Selecionar ou Tirar Foto (Admin)'
+          : 'Tirar Foto em Tempo Real (Câmera)'}
       </button>
 
+      {/* Para operador: capture='environment' aciona diretamente a câmera do celular */}
       <input
         ref={fileRef}
         type="file"
         name="photo"
         accept="image/jpeg,image/png,image/webp,image/heic"
+        capture={isAdmin ? undefined : 'environment'}
         className="hidden"
         onChange={handleFileChange}
       />
@@ -113,10 +123,27 @@ export function CleaningUploadForm({
         className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
 
-      <p className="flex items-start gap-1.5 text-[11px] text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
-        <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-        <span>A foto <strong>DEVE</strong> conter a localização ativada (GPS) nas configurações da câmera do seu celular para comprovar a presença na repetidora.</span>
-      </p>
+      {isAdmin ? (
+        <div className="flex items-start gap-2 text-xs text-blue-800 bg-blue-50/80 p-2.5 rounded-lg border border-blue-200">
+          <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-semibold text-blue-900">Modo Administrador Habilitado</p>
+            <p className="text-[11px] text-blue-700">
+              Você pode realizar uploads retroativos a qualquer momento, incluindo imagens da galeria ou fotos sem restrição de data/horário.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2 text-xs text-amber-900 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+          <MapPin className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-semibold text-amber-950">Registro em Tempo Real Obrigatório</p>
+            <p className="text-[11px] text-amber-800">
+              A foto <strong>deve ser tirada agora no local</strong> com o <strong>GPS ativado</strong> na câmera. O sistema valida automaticamente o horário e localização para evitar fraudes ou fotos repetidas.
+            </p>
+          </div>
+        </div>
+      )}
 
       <button
         type="submit"

@@ -32,16 +32,24 @@ export type CleaningRepeaterRow = {
   } | null
 }
 
-export function CleaningTable({ repeaters }: { repeaters: CleaningRepeaterRow[] }) {
+export function CleaningTable({
+  repeaters,
+  userRole = 'OPERATOR',
+}: {
+  repeaters: CleaningRepeaterRow[]
+  userRole?: string
+}) {
   const { t } = useTranslation()
   const [selected, setSelected] = useState<CleaningRepeaterRow | null>(null)
   const [justCleaned, setJustCleaned] = useState<Record<string, boolean>>({})
+  const [isEditing, setIsEditing] = useState(false)
 
   const isCleaned = (id: string, currentCleaning: CleaningRepeaterRow['currentCleaning']) =>
     Boolean(justCleaned[id] || currentCleaning)
 
   const handleUploaded = (repeaterId: string) => {
     setJustCleaned((prev) => ({ ...prev, [repeaterId]: true }))
+    setIsEditing(false)
     setSelected(null)
   }
 
@@ -122,7 +130,7 @@ export function CleaningTable({ repeaters }: { repeaters: CleaningRepeaterRow[] 
       {selected && (
         <div
           className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-6"
-          onClick={() => setSelected(null)}
+          onClick={() => { setSelected(null); setIsEditing(false); }}
         >
           <div
             className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto"
@@ -138,7 +146,7 @@ export function CleaningTable({ repeaters }: { repeaters: CleaningRepeaterRow[] 
                 </div>
               </div>
               <button
-                onClick={() => setSelected(null)}
+                onClick={() => { setSelected(null); setIsEditing(false); }}
                 className="p-2 text-slate-400 hover:text-slate-700 transition-colors rounded-lg"
                 aria-label={t('common.close')}
               >
@@ -221,6 +229,40 @@ export function CleaningTable({ repeaters }: { repeaters: CleaningRepeaterRow[] 
                       </p>
                     )}
                   </div>
+
+                  {userRole === 'ADMIN' && !isEditing && (
+                    <div className="pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(true)}
+                        className="w-full py-2 px-3 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 flex items-center justify-center gap-1.5"
+                      >
+                        Substituir / Atualizar Evidência (Admin)
+                      </button>
+                    </div>
+                  )}
+
+                  {userRole === 'ADMIN' && isEditing && (
+                    <div className="pt-3 border-t border-slate-200 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700 uppercase">
+                          Atualizar Foto de Limpeza
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditing(false)}
+                          className="text-xs text-slate-500 hover:text-slate-700 underline"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                      <CleaningUploadForm
+                        repeaterId={selected.id}
+                        userRole={userRole}
+                        onDone={() => handleUploaded(selected.id)}
+                      />
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -230,6 +272,7 @@ export function CleaningTable({ repeaters }: { repeaters: CleaningRepeaterRow[] 
                   </div>
                   <CleaningUploadForm
                     repeaterId={selected.id}
+                    userRole={userRole}
                     onDone={() => handleUploaded(selected.id)}
                   />
                 </>

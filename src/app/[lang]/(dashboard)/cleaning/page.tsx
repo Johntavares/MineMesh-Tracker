@@ -7,6 +7,8 @@ import { notFound } from 'next/navigation'
 import { CleaningTable } from '@/components/cleaning/CleaningTable'
 import { getWeekStart, isSameWeek } from '@/lib/cleaning'
 import { Sparkles, Clock } from 'lucide-react'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export default async function CleaningPage({
   params,
@@ -16,6 +18,8 @@ export default async function CleaningPage({
   const { lang } = await params
   if (!isLocale(lang)) notFound()
   const dict = await getDictionary(lang)
+  const session = await getServerSession(authOptions)
+  const userRole = session?.user?.role || 'OPERATOR'
 
   const repeaters = await prisma.repeater.findMany({
     where: { deletedAt: null },
@@ -93,7 +97,7 @@ export default async function CleaningPage({
           </div>
         </div>
 
-        <CleaningTable repeaters={rows} />
+        <CleaningTable repeaters={rows} userRole={userRole} />
       </div>
     </div>
   )
