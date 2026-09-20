@@ -1,21 +1,32 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
+import { PwaRegistration } from '@/components/PwaRegistration'
 
 const inter = Inter({ subsets: ['latin'] })
+
+export const viewport: Viewport = {
+  themeColor: '#1e293b',
+  width: 'device-width',
+  initialScale: 1,
+}
 
 export const metadata: Metadata = {
   title: 'Mesh Monitor',
   description: 'Mesh repeater monitoring system',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Mesh Monitor',
+  },
   icons: {
-    icon: '/icon-192.png?v=2',
-    shortcut: '/icon-192.png?v=2',
-    apple: '/icon-192.png?v=2',
-  }
+    icon: '/icon-192.png',
+    shortcut: '/icon-192.png',
+    apple: '/icon-192.png',
+  },
 }
-
-import { PwaRegistration } from '@/components/PwaRegistration'
 
 export default function RootLayout({
   children,
@@ -24,14 +35,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className="h-full bg-slate-50">
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#1e293b" />
-        <link rel="icon" href="/icon-192.png?v=2" type="image/png" />
-        <link rel="apple-touch-icon" href="/icon-192.png?v=2" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-      </head>
       <body className={`${inter.className} h-full antialiased`}>
         <PwaRegistration />
         <Providers>

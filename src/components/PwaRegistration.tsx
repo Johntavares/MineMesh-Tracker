@@ -5,16 +5,23 @@ import { useEffect } from 'react';
 export function PwaRegistration() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js').then(
-          function (registration) {
+      const registerSW = () => {
+        navigator.serviceWorker
+          .register('/sw.js', { scope: '/' })
+          .then((registration) => {
             console.log('Service Worker registration successful with scope: ', registration.scope);
-          },
-          function (err) {
-            console.log('Service Worker registration failed: ', err);
-          }
-        );
-      });
+          })
+          .catch((err) => {
+            console.error('Service Worker registration failed: ', err);
+          });
+      };
+
+      if (document.readyState === 'complete') {
+        registerSW();
+      } else {
+        window.addEventListener('load', registerSW);
+        return () => window.removeEventListener('load', registerSW);
+      }
     }
   }, []);
 

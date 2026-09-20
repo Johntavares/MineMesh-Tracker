@@ -23,6 +23,21 @@ function getLocale(request: NextRequest): string {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Bypass static files, PWA files, uploads, and metadata
+  if (
+    pathname === '/manifest.json' ||
+    pathname === '/sw.js' ||
+    pathname === '/favicon.ico' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml' ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/uploads') ||
+    pathname.match(/\.(?:png|jpg|jpeg|gif|webp|svg|ico|json|js)$/)
+  ) {
+    return NextResponse.next()
+  }
+
   const pathnameHasLocale = locales.some(
     (locale) =>
       pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
@@ -58,6 +73,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|uploads|.*\\.png$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest\\.json|sw\\.js|robots\\.txt|sitemap\\.xml|uploads|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|json|js)$).*)',
   ],
 }
