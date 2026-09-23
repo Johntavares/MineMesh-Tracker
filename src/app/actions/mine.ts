@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
-import { writeFile } from 'fs/promises'
+import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { cookies } from 'next/headers'
 import { isLocale } from '@/lib/i18n/config'
@@ -59,8 +59,11 @@ export async function saveMineSettings(data: FormData) {
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)
 
+      const uploadDir = join(process.cwd(), 'public', 'uploads')
+      await mkdir(uploadDir, { recursive: true })
+
       const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`
-      const path = join(process.cwd(), 'public', 'uploads', filename)
+      const path = join(uploadDir, filename)
       
       await writeFile(path, buffer)
       imageUrl = `/uploads/${filename}`
@@ -107,7 +110,11 @@ export async function saveMineSettings(data: FormData) {
     const lang = cookieStore.get('NEXT_LOCALE')?.value || 'pt-BR'
     const locale = isLocale(lang) ? lang : 'pt-BR'
     const dict = await getDictionary(locale)
-    return { success: false, error: dict.errors.saveMapSettings || 'Erro ao salvar configurações da mina.' }
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { 
+      success: false, 
+      error: dict.errors?.saveMapSettings ? `${dict.errors.saveMapSettings}: ${errorMessage}` : `Erro ao salvar configurações da mina: ${errorMessage}` 
+    }
   }
 }
 

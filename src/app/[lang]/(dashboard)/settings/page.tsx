@@ -21,7 +21,26 @@ export default async function SettingsPage({
   }
 
   const currentMine = await prisma.mine.findUnique({
-    where: { id: 'default-mine' }
+    where: { id: 'default-mine' },
+    include: {
+      repeaters: {
+        where: {
+          deletedAt: null,
+          latitude: { not: null },
+          longitude: { not: null },
+        },
+        orderBy: { code: 'asc' },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          latitude: true,
+          longitude: true,
+          model: true,
+          status: true,
+        },
+      },
+    },
   })
 
   return (
@@ -45,6 +64,7 @@ export default async function SettingsPage({
             currentHeatRadius={currentMine?.heatRadius}
             currentHeatBlur={currentMine?.heatBlur}
             currentHeatIntensity={currentMine?.heatIntensity}
+            referenceRepeaters={(currentMine?.repeaters as any[]) || []}
             lang={lang}
           />
         </div>

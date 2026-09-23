@@ -1,7 +1,21 @@
 'use client'
 
 import { useState, useRef, MouseEvent } from 'react'
-import { Upload, MapPin, Calculator, Check, FileText, Image as ImageIcon, ChevronRight, ChevronLeft, RotateCcw } from 'lucide-react'
+import { 
+  Upload, 
+  MapPin, 
+  Calculator, 
+  Check, 
+  FileText, 
+  Image as ImageIcon, 
+  ChevronRight, 
+  ChevronLeft, 
+  Target,
+  ZoomIn,
+  ZoomOut,
+  AlertCircle,
+  Loader2
+} from 'lucide-react'
 import { saveMineSettings } from '@/app/actions/mine'
 import { useTranslation } from '@/lib/i18n/client'
 
@@ -11,6 +25,16 @@ interface Point {
   y: number // percentage from top (0 to 100)
   lat: number
   lng: number
+}
+
+export interface ReferenceRepeater {
+  id: string
+  code: string
+  name: string
+  latitude: number
+  longitude: number
+  model?: string
+  status?: string
 }
 
 interface GeoreferenceWizardProps {
@@ -28,6 +52,7 @@ interface GeoreferenceWizardProps {
   currentHeatRadius?: number
   currentHeatBlur?: number
   currentHeatIntensity?: number
+  referenceRepeaters?: ReferenceRepeater[]
   lang: string
 }
 
@@ -46,12 +71,16 @@ export function GeoreferenceWizard({
   currentHeatRadius = 60,
   currentHeatBlur = 40,
   currentHeatIntensity = 0.8,
+  referenceRepeaters = [],
   lang
 }: GeoreferenceWizardProps) {
   const { t } = useTranslation()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [fileError, setFileError] = useState('')
+  const [fileSizeInfo, setFileSizeInfo] = useState('')
+  const [zoom, setZoom] = useState(1)
 
   // Form states
   const [name, setName] = useState(currentName || 'Mina do Salobo')
@@ -70,13 +99,33 @@ export function GeoreferenceWizard({
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string>(currentImageUrl || '')
   const [pdfFile, setPdfFile] = useState<File | null>(null)
 
-  // Calibration points states (at least 2 are needed)
+  // Smart default initialization: prioritize 320 U&M and prominent ROOT towers
   const [points, setPoints] = useState<Point[]>(() => {
-    const baseLat = currentCenterLat ?? -19.8157
-    const baseLng = currentCenterLng ?? -43.9542
+    const rpt320 = referenceRepeaters.find(r => 
+      r.code.toLowerCase().includes('320') || r.name.toLowerCase().includes('320')
+    )
+    const rptCaixa = referenceRepeaters.find(r => 
+      r.code.toUpperCase().includes('CAIXA') || r.name.toUpperCase().includes('CAIXA')
+    )
+    const rptRoot = referenceRepeaters.find(r => 
+      r.code.toUpperCase().startsWith('ROOT') && r.id !== rptCaixa?.id
+    )
+
     return [
-      { name: 'Portaria / Oficina', x: 25, y: 30, lat: baseLat, lng: baseLng },
-      { name: 'Pátio de Britagem', x: 75, y: 70, lat: baseLat + 0.005, lng: baseLng + 0.005 }
+      {
+        name: rpt320 ? rpt320.code : '320 U&M (Calibração)',
+        x: 35,
+        y: 60,
+        lat: rpt320?.latitude ?? -5.796476109433988,
+        lng: rpt320?.longitude ?? -50.53949356342996,
+      },
+      {
+        name: rptCaixa ? rptCaixa.code : (rptRoot ? rptRoot.code : "ROOT - CAIXA D' AGUA"),
+        x: 75,
+        y: 58,
+        lat: rptCaixa?.latitude ?? (rptRoot?.latitude ?? -5.796381969634659),
+        lng: rptCaixa?.longitude ?? (rptRoot?.longitude ?? -50.53397149300766),
+      }
     ]
   })
   const [activePointIndex, setActivePointIndex] = useState<number | null>(0)
@@ -88,10 +137,17 @@ export function GeoreferenceWizard({
 
   const imageRef = useRef<HTMLImageElement>(null)
 
-  // File upload handlers
+  // File upload handlers with size checking (up to 50MB)
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError('')
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
+      const sizeMb = file.size / (1024 * 1024)
+      if (sizeMb > 50) {
+        setFileError(`O arquivo tem ${sizeMb.toFixed(1)}MB. O limite máximo suportado para o mapa é 50MB.`)
+        return
+      }
+      setFileSizeInfo(`${sizeMb.toFixed(1)} MB`)
       setImageFile(file)
       setImagePreviewUrl(URL.createObjectURL(file))
     }
@@ -108,12 +164,28 @@ export function GeoreferenceWizard({
     if (activePointIndex === null || !imageRef.current) return
 
     const rect = imageRef.current.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
+    let x = ((e.clientX - rect.left) / rect.width) * 100
+    let y = ((e.clientY - rect.top) / rect.height) * 100
+
+    x = Math.max(0, Math.min(100, x))
+    y = Math.max(0, Math.min(100, y))
 
     setPoints(prev => prev.map((p, idx) => {
       if (idx === activePointIndex) {
         return { ...p, x, y }
+      }
+      return p
+    }))
+  }
+
+  const nudgePoint = (index: number, dx: number, dy: number) => {
+    setPoints(prev => prev.map((p, idx) => {
+      if (idx === index) {
+        return {
+          ...p,
+          x: Math.max(0, Math.min(100, p.x + dx)),
+          y: Math.max(0, Math.min(100, p.y + dy)),
+        }
       }
       return p
     }))
@@ -129,8 +201,8 @@ export function GeoreferenceWizard({
   }
 
   const addPoint = () => {
-    const baseLat = currentCenterLat ?? -19.8157
-    const baseLng = currentCenterLng ?? -43.9542
+    const baseLat = currentCenterLat ?? -5.7947
+    const baseLng = currentCenterLng ?? -50.5357
     setPoints(prev => [
       ...prev,
       { name: `Ponto ${prev.length + 1}`, x: 50, y: 50, lat: baseLat, lng: baseLng }
@@ -147,6 +219,61 @@ export function GeoreferenceWizard({
     setActivePointIndex(0)
   }
 
+  // Presets
+  const applyPreset320Caixa = () => {
+    const rpt320 = referenceRepeaters.find(r => 
+      r.code.toLowerCase().includes('320') || r.name.toLowerCase().includes('320')
+    )
+    const rptCaixa = referenceRepeaters.find(r => 
+      r.code.toUpperCase().includes('CAIXA') || r.name.toUpperCase().includes('CAIXA')
+    )
+
+    setPoints([
+      {
+        name: rpt320 ? rpt320.code : '320 U&M',
+        x: 35,
+        y: 60,
+        lat: rpt320?.latitude ?? -5.796476109433988,
+        lng: rpt320?.longitude ?? -50.53949356342996,
+      },
+      {
+        name: rptCaixa ? rptCaixa.code : "ROOT - CAIXA D' AGUA",
+        x: 75,
+        y: 58,
+        lat: rptCaixa?.latitude ?? -5.796381969634659,
+        lng: rptCaixa?.longitude ?? -50.53397149300766,
+      }
+    ])
+    setActivePointIndex(0)
+  }
+
+  const applyPreset320SE2002 = () => {
+    const rpt320 = referenceRepeaters.find(r => 
+      r.code.toLowerCase().includes('320') || r.name.toLowerCase().includes('320')
+    )
+    const rptSE = referenceRepeaters.find(r => 
+      r.code.toUpperCase().includes('2002') || r.name.toUpperCase().includes('2002')
+    )
+
+    setPoints([
+      {
+        name: rpt320 ? rpt320.code : '320 U&M',
+        x: 35,
+        y: 65,
+        lat: rpt320?.latitude ?? -5.796476109433988,
+        lng: rpt320?.longitude ?? -50.53949356342996,
+      },
+      {
+        name: rptSE ? rptSE.code : 'ROOT - SE-2002',
+        x: 42,
+        y: 28,
+        lat: rptSE?.latitude ?? -5.792795452229752,
+        lng: rptSE?.longitude ?? -50.53874314284516,
+      }
+    ])
+    setActivePointIndex(0)
+  }
+
   // Calibration Math
   const calculateCalibration = () => {
     if (points.length < 2) return
@@ -160,8 +287,18 @@ export function GeoreferenceWizard({
     const dx = (p2.x - p1.x) / 100
     const dy = (p2.y - p1.y) / 100
 
-    if (Math.abs(dx) < 0.01 || Math.abs(dy) < 0.01) {
-      alert('Os pontos de calibração estão muito próximos ou alinhados. Escolha pontos distantes na imagem (ex: um no topo esquerdo e outro no canto inferior direito).')
+    if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) {
+      alert('Os pontos de calibração estão na mesma posição. Clique em locais diferentes na imagem para cada ponto.')
+      return
+    }
+
+    if (Math.abs(dx) < 0.005) {
+      alert('Os pontos estão perfeitamente na mesma coluna vertical. Escolha pontos com separação horizontal também.')
+      return
+    }
+
+    if (Math.abs(dy) < 0.005) {
+      alert('Os pontos estão perfeitamente na mesma linha horizontal. Escolha pontos com separação vertical também (ex: 320 U&M + SE-2002 ou adicione mais um ponto).')
       return
     }
 
@@ -241,7 +378,6 @@ export function GeoreferenceWizard({
       const res = await saveMineSettings(formData)
       if (res.success) {
         setMessage('Mina georreferenciada e salva com sucesso!')
-        // Redirect or refresh
         setTimeout(() => {
           window.location.href = `/${lang}/map`
         }, 1500)
@@ -250,7 +386,7 @@ export function GeoreferenceWizard({
       }
     } catch (err) {
       console.error(err)
-      setMessage('Erro de conexão ao salvar.')
+      setMessage(err instanceof Error ? `Erro: ${err.message}` : 'Erro de conexão ao salvar mapa.')
     } finally {
       setLoading(false)
     }
@@ -262,14 +398,14 @@ export function GeoreferenceWizard({
       <div className="bg-slate-50 border-b border-slate-100 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
         <h2 className="font-semibold text-slate-800 flex items-center gap-2 text-base sm:text-lg">
           <Calculator className="w-5 h-5 text-blue-600 shrink-0" />
-          <span>Assistente de Georreferenciamento</span>
+          <span>Assistente de Georreferenciamento e Mapa</span>
         </h2>
         <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-slate-400 font-medium self-end sm:self-auto">
           <span className={step === 1 ? 'text-blue-600 font-bold' : ''}>1<span className="hidden sm:inline">. Imagem</span></span>
           <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-300" />
           <span className={step === 2 ? 'text-blue-600 font-bold' : ''}>2<span className="hidden sm:inline">. PDF</span></span>
           <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-300" />
-          <span className={step === 3 ? 'text-blue-600 font-bold' : ''}>3<span className="hidden sm:inline">. Calibração</span></span>
+          <span className={step === 3 ? 'text-blue-600 font-bold' : ''}>3<span className="hidden sm:inline">. Calibração (320 U&M)</span></span>
           <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-300" />
           <span className={step >= 4 ? 'text-blue-600 font-bold' : ''}>4<span className="hidden sm:inline">. Salvar</span></span>
         </div>
@@ -279,10 +415,10 @@ export function GeoreferenceWizard({
         {/* STEP 1: IMAGE UPLOAD */}
         {step === 1 && (
           <div className="space-y-6">
-            <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-blue-400 transition-colors relative">
+            <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-blue-400 transition-colors relative bg-slate-50/50">
               <input
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
                 onChange={handleImageChange}
                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
               />
@@ -290,24 +426,33 @@ export function GeoreferenceWizard({
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-full">
                   <Upload className="w-8 h-8" />
                 </div>
-                <h3 className="font-semibold text-slate-800 text-base">Upload da Imagem Aérea</h3>
-                <p className="text-sm text-slate-500 max-w-sm">
-                  Selecione uma ortofoto, imagem de satélite ou planta em formato JPG, JPEG ou PNG.
+                <h3 className="font-semibold text-slate-800 text-base">Upload da Imagem Aérea / Ortofoto da Mina</h3>
+                <p className="text-sm text-slate-500 max-w-md">
+                  Selecione a imagem aérea atualizada (JPG, PNG ou WEBP). Suporta arquivos de alta resolução de até <strong>50MB</strong>.
                 </p>
                 {imageFile && (
-                  <span className="mt-2 text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full flex items-center gap-1">
-                    <Check className="w-3 h-3" /> {imageFile.name}
+                  <span className="mt-2 text-xs font-semibold px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full flex items-center gap-1.5 border border-emerald-200">
+                    <Check className="w-3.5 h-3.5" /> {imageFile.name} ({fileSizeInfo})
                   </span>
                 )}
               </div>
             </div>
 
+            {fileError && (
+              <div className="p-3 rounded-lg bg-red-50 text-red-700 text-xs flex items-center gap-2 border border-red-200">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{fileError}</span>
+              </div>
+            )}
+
             {imagePreviewUrl && (
-              <div className="border border-slate-100 rounded-lg p-3 bg-slate-50 flex items-center gap-3">
+              <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 flex items-center gap-3">
                 <ImageIcon className="w-10 h-10 text-slate-400 object-cover rounded border" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">Visualização do Mapa</p>
-                  <p className="text-xs text-slate-400">Pronto para calibração de escala e GPS</p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">Imagem Pronta para Calibração</p>
+                  <p className="text-xs text-slate-400">
+                    {imageFile ? `Nova imagem carregada (${fileSizeInfo})` : 'Usando imagem atual da mina'}
+                  </p>
                 </div>
               </div>
             )}
@@ -328,7 +473,7 @@ export function GeoreferenceWizard({
         {/* STEP 2: PDF UPLOAD */}
         {step === 2 && (
           <div className="space-y-6">
-            <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-blue-400 transition-colors relative">
+            <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-blue-400 transition-colors relative bg-slate-50/50">
               <input
                 type="file"
                 accept="application/pdf"
@@ -341,7 +486,7 @@ export function GeoreferenceWizard({
                 </div>
                 <h3 className="font-semibold text-slate-800 text-base">Upload de PDF Operacional (Opcional)</h3>
                 <p className="text-sm text-slate-500 max-w-sm">
-                  Envie a planta operacional da mina em formato PDF para calibração e visualização futura.
+                  Envie a planta operacional da mina em formato PDF caso deseje arquivar junto ao mapa.
                 </p>
                 {pdfFile && (
                   <span className="mt-2 text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full flex items-center gap-1">
@@ -362,7 +507,7 @@ export function GeoreferenceWizard({
                 onClick={() => setStep(3)}
                 className="flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors"
               >
-                Ir para Calibração <ChevronRight className="w-4 h-4" />
+                Ir para Calibração (320 U&M) <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -370,16 +515,44 @@ export function GeoreferenceWizard({
 
         {/* STEP 3: CALIBRATION POINTS */}
         {step === 3 && (
-          <div className="space-y-6">
-            <p className="text-sm text-slate-500">
-              Instruções: Adicione no mínimo dois pontos de referência conhecidos. Selecione o ponto na lista ao lado, e <strong>clique exatamente na posição desse ponto na imagem aérea abaixo</strong>. Em seguida, informe a latitude e longitude reais.
-            </p>
+          <div className="space-y-4">
+            {/* Quick Preset Bar for 320 U&M */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-blue-600" />
+                  <span className="font-bold text-xs text-blue-900">Referência Primária de Calibração: 320 U&M</span>
+                </div>
+                <span className="text-[10px] bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded-full border border-blue-200">
+                  Coordenadas Oficiais
+                </span>
+              </div>
+              <p className="text-xs text-blue-700 leading-relaxed">
+                Clique nos botões rápidos abaixo para carregar as coordenadas reais do ponto <strong>320 U&M</strong> e de uma torre <strong>ROOT</strong> de ancoragem. Em seguida, basta clicar na imagem no local exato de cada um!
+              </p>
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={applyPreset320Caixa}
+                  className="text-xs font-semibold px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+                >
+                  <Target className="w-3.5 h-3.5" /> 320 U&M + Caixa D&apos;Água (Recomendado)
+                </button>
+                <button
+                  type="button"
+                  onClick={applyPreset320SE2002}
+                  className="text-xs font-semibold px-2.5 py-1.5 bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <Target className="w-3.5 h-3.5" /> 320 U&M + SE-2002
+                </button>
+              </div>
+            </div>
 
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Point management panel */}
-              <div className="w-full lg:w-80 space-y-4">
+              <div className="w-full lg:w-80 space-y-3 shrink-0">
                 <div className="flex items-center justify-between border-b pb-2">
-                  <h4 className="font-bold text-slate-800 text-sm">Pontos de Calibração</h4>
+                  <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wide">Pontos de Calibração</h4>
                   <button
                     onClick={addPoint}
                     className="text-xs font-semibold text-blue-600 hover:text-blue-800"
@@ -388,35 +561,69 @@ export function GeoreferenceWizard({
                   </button>
                 </div>
 
-                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
                   {points.map((p, idx) => (
                     <div
                       key={idx}
                       onClick={() => setActivePointIndex(idx)}
                       className={`p-3 rounded-lg border cursor-pointer transition-all ${
                         activePointIndex === idx
-                          ? 'border-blue-500 bg-blue-50/50 shadow-sm'
-                          : 'border-slate-200 hover:border-slate-300'
+                          ? 'border-blue-500 bg-blue-50/50 shadow-sm ring-1 ring-blue-400'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-1 mb-2">
-                        <input
-                          type="text"
-                          value={p.name}
-                          onChange={(e) => updatePointField(idx, 'name', e.target.value)}
-                          className="font-bold text-xs bg-transparent border-b border-transparent focus:border-slate-300 focus:outline-none text-slate-800 w-36"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            removePoint(idx)
-                          }}
-                          className="text-[10px] text-red-500 hover:text-red-700"
-                        >
-                          Remover
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${activePointIndex === idx ? 'bg-red-500 animate-ping' : 'bg-blue-500'}`} />
+                          <input
+                            type="text"
+                            value={p.name}
+                            onChange={(e) => updatePointField(idx, 'name', e.target.value)}
+                            className="font-bold text-xs bg-transparent border-b border-transparent focus:border-slate-300 focus:outline-none text-slate-800 w-40"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        {points.length > 2 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removePoint(idx)
+                            }}
+                            className="text-[10px] text-red-500 hover:text-red-700"
+                          >
+                            Remover
+                          </button>
+                        )}
                       </div>
+
+                      {/* Dropdown to pick known repeater */}
+                      {referenceRepeaters.length > 0 && (
+                        <div className="mb-2" onClick={(e) => e.stopPropagation()}>
+                          <label className="text-[10px] text-slate-500 font-medium block mb-0.5">
+                            Preencher com repetidora conhecida:
+                          </label>
+                          <select
+                            className="w-full text-xs border border-slate-300 bg-white rounded px-2 py-1 text-slate-800 font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                            value={referenceRepeaters.find(r => r.code === p.name)?.id || ''}
+                            onChange={(e) => {
+                              const selected = referenceRepeaters.find(r => r.id === e.target.value)
+                              if (selected) {
+                                updatePointField(idx, 'name', selected.code)
+                                updatePointField(idx, 'lat', selected.latitude)
+                                updatePointField(idx, 'lng', selected.longitude)
+                              }
+                            }}
+                          >
+                            <option value="">-- Personalizado / Digitar manual --</option>
+                            {referenceRepeaters.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.code} {r.code.toLowerCase().includes('320') ? '⭐ (320 U&M Calibração)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
                         <div>
                           <label className="text-[9px] text-slate-400 font-semibold uppercase">Latitude</label>
@@ -425,7 +632,7 @@ export function GeoreferenceWizard({
                             step="any"
                             value={p.lat}
                             onChange={(e) => updatePointField(idx, 'lat', Number(e.target.value))}
-                            className="w-full text-xs border border-slate-200 rounded px-1.5 py-1 font-mono"
+                            className="w-full text-xs border border-slate-200 rounded px-1.5 py-1 font-mono bg-white"
                           />
                         </div>
                         <div>
@@ -435,13 +642,20 @@ export function GeoreferenceWizard({
                             step="any"
                             value={p.lng}
                             onChange={(e) => updatePointField(idx, 'lng', Number(e.target.value))}
-                            className="w-full text-xs border border-slate-200 rounded px-1.5 py-1 font-mono"
+                            className="w-full text-xs border border-slate-200 rounded px-1.5 py-1 font-mono bg-white"
                           />
                         </div>
                       </div>
-                      <div className="mt-1.5 flex justify-between text-[9px] text-slate-400">
-                        <span>Posição na Imagem:</span>
-                        <span>X: {p.x.toFixed(1)}% | Y: {p.y.toFixed(1)}%</span>
+
+                      <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-100">
+                        <span>X: <strong>{p.x.toFixed(1)}%</strong> | Y: <strong>{p.y.toFixed(1)}%</strong></span>
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <span className="text-[9px] text-slate-400 mr-0.5">Ajuste fino:</span>
+                          <button type="button" onClick={() => nudgePoint(idx, 0, -0.2)} className="w-4 h-4 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-[10px] flex items-center justify-center font-bold" title="Mover para cima">↑</button>
+                          <button type="button" onClick={() => nudgePoint(idx, 0, 0.2)} className="w-4 h-4 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-[10px] flex items-center justify-center font-bold" title="Mover para baixo">↓</button>
+                          <button type="button" onClick={() => nudgePoint(idx, -0.2, 0)} className="w-4 h-4 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-[10px] flex items-center justify-center font-bold" title="Mover para esquerda">←</button>
+                          <button type="button" onClick={() => nudgePoint(idx, 0.2, 0)} className="w-4 h-4 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 text-[10px] flex items-center justify-center font-bold" title="Mover para direita">→</button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -449,45 +663,97 @@ export function GeoreferenceWizard({
 
                 <button
                   onClick={calculateCalibration}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
                 >
-                  <Calculator className="w-4 h-4" /> Calcular Bounds
+                  <Calculator className="w-4 h-4" /> Calcular Georreferenciamento
                 </button>
               </div>
 
-              {/* Georeferencing image canvas */}
-              <div className="flex-1">
-                <div
-                  className="relative rounded-xl border border-slate-200 overflow-hidden bg-slate-100 cursor-crosshair group shadow-inner"
-                  onClick={handleImageClick}
-                  style={{ maxHeight: '500px' }}
-                >
-                  <img
-                    ref={imageRef}
-                    src={imagePreviewUrl}
-                    alt="Calibration Map"
-                    className="w-full h-auto object-contain mx-auto select-none"
-                    style={{ maxHeight: '500px' }}
-                  />
-
-                  {/* Draw pins for each point */}
-                  {points.map((p, idx) => (
-                    <div
-                      key={idx}
-                      className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none"
-                      style={{ left: `${p.x}%`, top: `${p.y}%` }}
+              {/* Georeferencing image canvas with Zoom & Pan */}
+              <div className="flex-1 flex flex-col min-w-0">
+                <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+                  <span className="text-xs font-semibold text-slate-700 flex items-center gap-1 truncate">
+                    <MapPin className="w-3.5 h-3.5 text-red-500" />
+                    Ponto ativo: <strong className="text-blue-600">{activePointIndex !== null ? points[activePointIndex].name : 'Nenhum'}</strong> (clique na imagem)
+                  </span>
+                  
+                  {/* Zoom controls */}
+                  <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 text-xs shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setZoom(prev => Math.max(1, prev - 0.5))}
+                      disabled={zoom <= 1}
+                      className="p-1 hover:bg-white rounded text-slate-700 disabled:opacity-30"
+                      title="Diminuir Zoom"
                     >
-                      <MapPin
-                        className={`w-6 h-6 drop-shadow ${
-                          activePointIndex === idx ? 'text-red-500 scale-125' : 'text-blue-500'
-                        } transition-transform`}
-                      />
-                      <span className="bg-slate-900/90 text-white font-bold text-[9px] px-1.5 py-0.5 rounded shadow whitespace-nowrap mt-1 border border-slate-700">
-                        {p.name || `Pto ${idx + 1}`}
-                      </span>
-                    </div>
-                  ))}
+                      <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="px-1.5 font-mono text-[11px] font-semibold text-slate-700">{zoom}x</span>
+                    <button
+                      type="button"
+                      onClick={() => setZoom(prev => Math.min(3, prev + 0.5))}
+                      disabled={zoom >= 3}
+                      className="p-1 hover:bg-white rounded text-slate-700 disabled:opacity-30"
+                      title="Aumentar Zoom"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                    {zoom !== 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setZoom(1)}
+                        className="px-1.5 py-0.5 text-[10px] text-blue-600 hover:bg-white rounded font-medium"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                <div
+                  className="relative rounded-xl border border-slate-200 overflow-auto bg-slate-900 cursor-crosshair group shadow-inner"
+                  style={{ maxHeight: '560px', minHeight: '380px' }}
+                >
+                  <div
+                    className="relative inline-block min-w-full"
+                    style={{ 
+                      transform: `scale(${zoom})`, 
+                      transformOrigin: 'top left',
+                      transition: 'transform 0.15s ease'
+                    }}
+                    onClick={handleImageClick}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      ref={imageRef}
+                      src={imagePreviewUrl}
+                      alt="Calibration Map"
+                      className="block max-w-none w-full h-auto select-none"
+                    />
+
+                    {/* Draw pins for each point */}
+                    {points.map((p, idx) => (
+                      <div
+                        key={idx}
+                        className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none pointer-events-none"
+                        style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                      >
+                        <MapPin
+                          className={`w-6 h-6 drop-shadow-md ${
+                            activePointIndex === idx ? 'text-red-500 scale-125' : 'text-blue-500'
+                          } transition-transform`}
+                        />
+                        <span className="bg-slate-900/90 text-white font-bold text-[9px] px-1.5 py-0.5 rounded shadow whitespace-nowrap mt-0.5 border border-slate-700">
+                          {p.name || `Pto ${idx + 1}`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-400 mt-2">
+                  Dica: Dê zoom para encontrar com precisão a estrutura do <strong>320 U&M</strong> e das torres de antena na imagem.
+                </p>
               </div>
             </div>
 
@@ -498,7 +764,7 @@ export function GeoreferenceWizard({
               >
                 <ChevronLeft className="w-4 h-4" /> Voltar
               </button>
-              <span className="text-xs text-slate-400">Ponto Ativo: {activePointIndex !== null ? points[activePointIndex].name : 'Nenhum'}</span>
+              <span className="text-xs text-slate-400">Total de Pontos: {points.length}</span>
             </div>
           </div>
         )}
@@ -687,7 +953,7 @@ export function GeoreferenceWizard({
                     <div className="pt-2 border-t border-slate-200">
                       <p className="text-slate-400 font-medium">Imagem a ser Salva</p>
                       <p className="text-slate-700 font-semibold truncate mt-0.5">
-                        {imageFile ? imageFile.name : 'Imagem pré-existente'}
+                        {imageFile ? `${imageFile.name} (${fileSizeInfo})` : 'Imagem pré-existente da mina'}
                       </p>
                     </div>
                   </div>
@@ -696,17 +962,19 @@ export function GeoreferenceWizard({
             </div>
 
             {message && (
-              <div className={`p-4 rounded-lg text-sm font-medium ${
+              <div className={`p-4 rounded-lg text-sm font-medium flex items-center gap-2 ${
                 message.includes('sucesso') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
               }`}>
-                {message}
+                {message.includes('sucesso') ? <Check className="w-5 h-5 text-emerald-600 shrink-0" /> : <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />}
+                <span>{message}</span>
               </div>
             )}
 
             <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-0 justify-between sm:items-center pt-4 border-t border-slate-100">
               <button
                 onClick={() => setStep(3)}
-                className="flex items-center justify-center gap-1 px-4 py-2.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-semibold transition-colors w-full sm:w-auto"
+                disabled={loading}
+                className="flex items-center justify-center gap-1 px-4 py-2.5 sm:py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-semibold transition-colors w-full sm:w-auto disabled:opacity-50"
               >
                 <ChevronLeft className="w-4 h-4" /> Ajustar Calibração
               </button>
@@ -714,9 +982,16 @@ export function GeoreferenceWizard({
               <button
                 onClick={handleSave}
                 disabled={loading}
-                className="flex items-center justify-center gap-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 w-full sm:w-auto"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 w-full sm:w-auto"
               >
-                {loading ? 'Salvando...' : 'Salvar Mina & Ativar Mapa'}
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Salvando Imagem & Calibração...</span>
+                  </>
+                ) : (
+                  <span>Salvar Mina & Ativar Mapa</span>
+                )}
               </button>
             </div>
           </div>
