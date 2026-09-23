@@ -350,54 +350,74 @@ export function GeoreferenceWizard({
     }))
   }
 
-  // Calculate georeference: map adapts to fixed GPS coordinates
+  // Calculate georeference: map adapts to fixed GPS coordinates with 100% preserved aspect ratio
   const handleCalculateCalibration = () => {
     if (points.length < 2) return
 
     const p1 = points[0]
     const p2 = points[1]
 
-    const dLat = p2.lat - p1.lat
-    const dLng = p2.lng - p1.lng
-    const dx = (p2.x - p1.x) / 100
-    const dy = (p2.y - p1.y) / 100
+    // Real dimensions of the image in pixels
+    const imgWidth = imageRef.current?.naturalWidth || 2000
+    const imgHeight = imageRef.current?.naturalHeight || 1200
 
-    if (Math.abs(dx) < 0.02 && Math.abs(dy) < 0.02) {
-      alert('Os pontos 320 U&M e ROOT estão muito próximos ou na mesma posição na imagem. Marque os dois locais corretos.')
+    // Geographic constants at the mine's latitude
+    const midLat = (p1.lat + p2.lat) / 2
+    const latRad = (midLat * Math.PI) / 180
+    const metersPerDegLat = 111320
+    const metersPerDegLng = 111320 * Math.cos(latRad)
+
+    // True ground distance between Point 1 and Point 2 in meters
+    const deltaEastMeters = (p2.lng - p1.lng) * metersPerDegLng
+    const deltaNorthMeters = (p2.lat - p1.lat) * metersPerDegLat
+    const groundDistanceMeters = Math.sqrt(deltaEastMeters * deltaEastMeters + deltaNorthMeters * deltaNorthMeters)
+
+    // Pixel distance between Point 1 and Point 2
+    const px1 = (p1.x / 100) * imgWidth
+    const py1 = (p1.y / 100) * imgHeight
+    const px2 = (p2.x / 100) * imgWidth
+    const py2 = (p2.y / 100) * imgHeight
+
+    const deltaXPixels = px2 - px1
+    const deltaYPixels = py2 - py1
+    const pixelDistance = Math.sqrt(deltaXPixels * deltaXPixels + deltaYPixels * deltaYPixels)
+
+    if (pixelDistance < 10) {
+      alert('Os pontos 320 U&M e ROOT estão muito próximos na imagem. Marque as duas posições com clareza.')
       return
     }
 
-    if (Math.abs(dx) < 0.005) {
-      alert('Os dois pontos estão exatamente na mesma coluna vertical. Escolha dois pontos com separação horizontal também.')
-      return
-    }
+    // Isotropic Scale: Uniform meters per pixel (guarantees zero distortion and preserves 100% natural proportions)
+    const metersPerPixel = groundDistanceMeters / pixelDistance
 
-    if (Math.abs(dy) < 0.005) {
-      alert('Os dois pontos estão exatamente na mesma linha horizontal. Escolha pontos com separação vertical e horizontal.')
-      return
-    }
+    // Total ground dimensions of the entire image preserving exact aspect ratio
+    const totalWidthMeters = imgWidth * metersPerPixel
+    const totalHeightMeters = imgHeight * metersPerPixel
 
-    // Longitude and Latitude span per fraction of image width and height
-    const dLngPerFraction = dLng / dx
-    const dLatPerFraction = dLat / dy
+    // Angular span in degrees (conformal Web Mercator)
+    const spanLat = totalHeightMeters / metersPerDegLat
+    const spanLng = totalWidthMeters / metersPerDegLng
 
-    const lngLeft = p1.lng - (p1.x / 100) * dLngPerFraction
-    const lngRight = p1.lng + (1 - p1.x / 100) * dLngPerFraction
-    const latTop = p1.lat - (p1.y / 100) * dLatPerFraction
-    const latBottom = p1.lat + (1 - p1.y / 100) * dLatPerFraction
+    // Offset from Point 1 to the image center (in pixels)
+    // Note: on image canvas, Y increases downwards, so North is negative Y
+    const offsetXFromP1 = (0.5 * imgWidth) - px1
+    const offsetYFromP1 = (0.5 * imgHeight) - py1
 
+    const offsetEastMeters = offsetXFromP1 * metersPerPixel
+    const offsetNorthMeters = -offsetYFromP1 * metersPerPixel
+
+    // Geographic center of the image
+    const centerLat = p1.lat + (offsetNorthMeters / metersPerDegLat)
+    const centerLng = p1.lng + (offsetEastMeters / metersPerDegLng)
+
+    // Image bounds preserving exact 1:1 real proportions
     const bounds: [[number, number], [number, number]] = [
-      [Math.min(latTop, latBottom), Math.min(lngLeft, lngRight)], // Southwest
-      [Math.max(latTop, latBottom), Math.max(lngLeft, lngRight)]  // Northeast
-    ]
-
-    const center: [number, number] = [
-      (bounds[0][0] + bounds[1][0]) / 2,
-      (bounds[0][1] + bounds[1][1]) / 2
+      [centerLat - spanLat / 2, centerLng - spanLng / 2], // Southwest [lat, lng]
+      [centerLat + spanLat / 2, centerLng + spanLng / 2]  // Northeast [lat, lng]
     ]
 
     setCalculatedBounds(bounds)
-    setCalculatedCenter(center)
+    setCalculatedCenter([centerLat, centerLng])
     setStep(3) // Advance directly to save step
   }
 
