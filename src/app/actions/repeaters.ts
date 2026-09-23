@@ -49,12 +49,14 @@ export async function updateRepeaterLocation(
     if (oldRepeater) {
       const codeUpper = (oldRepeater.code || '').toUpperCase()
       const nameUpper = (oldRepeater.name || '').toUpperCase()
-      const isFixed = codeUpper.startsWith('ROOT') || nameUpper.startsWith('ROOT') || 
-                      codeUpper.includes('320') || nameUpper.includes('320')
-      if (isFixed) {
+      const is320 = codeUpper.includes('320') || nameUpper.includes('320')
+
+      // ROOT repeaters (except 320 which is allowed for field georeferencing) require Admin
+      const isRoot = (codeUpper.startsWith('ROOT') || nameUpper.startsWith('ROOT')) && !is320
+      if (isRoot && session?.user?.role !== 'ADMIN') {
         return { 
           success: false, 
-          error: 'As coordenadas de repetidoras ROOT e 320 U&M são fixas de implantação e não podem ser alteradas.' 
+          error: 'Apenas Administradores podem ajustar a localização de repetidoras ROOT.' 
         }
       }
     }

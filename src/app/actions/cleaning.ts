@@ -197,12 +197,11 @@ export async function saveCleaning(formData: FormData) {
       },
     })
 
-    const isFixed = repeater.code.toUpperCase().startsWith('ROOT') || 
-                    repeater.name.toUpperCase().startsWith('ROOT') || 
-                    repeater.code.toLowerCase().includes('320') || 
-                    repeater.name.toLowerCase().includes('320')
+    const isFixed = (repeater.code.toUpperCase().startsWith('ROOT') || 
+                     repeater.name.toUpperCase().startsWith('ROOT')) &&
+                    !repeater.code.toLowerCase().includes('320')
 
-    // Atualiza a localização da repetidora apenas se for OPERADOR em campo e se NÃO for repetidora fixa/root/320
+    // Atualiza a localização da repetidora se for OPERADOR em campo (liberado para 320 a pedido)
     if (!isAdmin && !isFixed && latitude !== null && longitude !== null) {
       await updateRepeaterLocation(repeaterId, latitude, longitude)
     }

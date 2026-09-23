@@ -1370,7 +1370,7 @@ export default function MineMap({
                 : '#EF4444'
 
               const isRoot = repeater.code.toUpperCase().startsWith('ROOT') || repeater.name.toUpperCase().startsWith('ROOT')
-              const isFixed = isRoot || repeater.code.toLowerCase().includes('320') || repeater.name.toLowerCase().includes('320')
+              const is320 = repeater.code.toLowerCase().includes('320') || repeater.name.toLowerCase().includes('320')
 
               // Custom SVG icons representing the actual physical Rajant and JR3 devices
               const isRajant = repeater.model.toLowerCase().includes('rajant')
@@ -1445,7 +1445,7 @@ export default function MineMap({
                   <Marker
                     position={position}
                     icon={divIcon}
-                    draggable={isAdmin && !isDrawingBoundary && !isFixed}
+                    draggable={isAdmin && !isDrawingBoundary}
                     eventHandlers={{
                       dragend: async (e) => {
                         const marker = e.target
@@ -1517,7 +1517,7 @@ export default function MineMap({
                           </div>
                         )}
 
-                        {!isFixed ? (
+                        {(isAdmin || !isRoot) ? (
                           <form className="mt-2.5 pt-2.5 border-t" onSubmit={async (e) => {
                             e.preventDefault()
                             const form = e.currentTarget

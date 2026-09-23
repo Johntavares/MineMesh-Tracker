@@ -57,8 +57,8 @@ export async function saveRepeater(data: FormData) {
       if (existing) {
         const codeUpper = (existing.code || '').toUpperCase()
         const nameUpper = (existing.name || '').toUpperCase()
-        const isFixed = codeUpper.startsWith('ROOT') || nameUpper.startsWith('ROOT') || 
-                        codeUpper.includes('320') || nameUpper.includes('320')
+        const isFixed = (codeUpper.startsWith('ROOT') || nameUpper.startsWith('ROOT')) &&
+                        !codeUpper.includes('320') && !nameUpper.includes('320')
         if (isFixed) {
           // Keep original fixed coordinates and code intact
           payload.code = existing.code
