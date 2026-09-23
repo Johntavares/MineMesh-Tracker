@@ -114,7 +114,7 @@ function ensureHorizontal(dataUrl: string): Promise<{ dataUrl: string; rotated: 
   })
 }
 
-// Utility: Render PDF Page 1 directly to Canvas Image in the browser
+// Utility: Render PDF Page 1 directly to Canvas Image in the browser with high DPI
 async function renderPdfToDataUrl(file: File): Promise<string> {
   if (!(window as any).pdfjsLib) {
     await new Promise((resolve, reject) => {
@@ -133,7 +133,7 @@ async function renderPdfToDataUrl(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
   const page = await pdf.getPage(1)
-  const viewport = page.getViewport({ scale: 2.2 })
+  const viewport = page.getViewport({ scale: 3.5 }) // Ultra high resolution (300+ DPI)
 
   const canvas = document.createElement('canvas')
   canvas.width = viewport.width
@@ -142,13 +142,13 @@ async function renderPdfToDataUrl(file: File): Promise<string> {
   if (!ctx) throw new Error('Falha ao inicializar renderizador gráfico.')
 
   await page.render({ canvasContext: ctx, viewport }).promise
-  const rawDataUrl = canvas.toDataURL('image/jpeg', 0.88)
+  const rawDataUrl = canvas.toDataURL('image/jpeg', 0.94)
   const { dataUrl } = await ensureHorizontal(rawDataUrl)
   return dataUrl
 }
 
-// Client-side compression to guarantee payload is < 2.0MB for Netlify/Lambda
-function compressForServer(dataUrl: string, maxDim = 2048, quality = 0.76): Promise<string> {
+// Client-side compression preserving ultra-high resolution up to 4096px
+function compressForServer(dataUrl: string, maxDim = 4096, quality = 0.90): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
@@ -175,8 +175,8 @@ function compressForServer(dataUrl: string, maxDim = 2048, quality = 0.76): Prom
       let q = quality
       let compressed = canvas.toDataURL('image/jpeg', q)
 
-      while (compressed.length > 2.0 * 1024 * 1024 && q > 0.35) {
-        q -= 0.12
+      while (compressed.length > 12.0 * 1024 * 1024 && q > 0.65) {
+        q -= 0.08
         compressed = canvas.toDataURL('image/jpeg', q)
       }
 
