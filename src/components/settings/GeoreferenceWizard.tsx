@@ -14,7 +14,9 @@ import {
   Lock,
   RotateCw,
   Sparkles,
-  Navigation
+  Navigation,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react'
 import { saveMineSettings } from '@/app/actions/mine'
 
@@ -206,6 +208,11 @@ export function GeoreferenceWizard({
   const [calculatedBounds, setCalculatedBounds] = useState<[[number, number], [number, number]] | null>(null)
   const [calculatedCenter, setCalculatedCenter] = useState<[number, number] | null>(null)
 
+  // Pan / Drag State for zoomed map
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
+  const [hasDragged, setHasDragged] = useState(false)
+
   // Initialize Default Reference Points (320 U&M and CAIXA D' AGUA)
   useEffect(() => {
     const rpt320 = referenceRepeaters.find(r => 
@@ -295,6 +302,11 @@ export function GeoreferenceWizard({
 
   // Handle clicking on image to position active reference point
   const handleImageClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (hasDragged) {
+      setHasDragged(false)
+      return
+    }
+
     if (!imageRef.current) return
 
     const rect = imageRef.current.getBoundingClientRect()
@@ -314,6 +326,42 @@ export function GeoreferenceWizard({
     // Automatically toggle to second point for convenience
     if (activePointIndex === 0 && points.length > 1) {
       setActivePointIndex(1)
+    }
+  }
+
+  // Pan handlers when zoomed
+  const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    if (!imageContainerRef.current) return
+    setIsDragging(true)
+    setHasDragged(false)
+    setDragStart({
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: imageContainerRef.current.scrollLeft,
+      scrollTop: imageContainerRef.current.scrollTop
+    })
+  }
+
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (!isDragging || !imageContainerRef.current) return
+    const dx = e.clientX - dragStart.x
+    const dy = e.clientY - dragStart.y
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      setHasDragged(true)
+      imageContainerRef.current.scrollLeft = dragStart.scrollLeft - dx
+      imageContainerRef.current.scrollTop = dragStart.scrollTop - dy
+    }
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+      e.preventDefault()
+      const delta = e.deltaY < 0 ? 0.5 : -0.5
+      setZoom(prev => Math.max(1, Math.min(12, +(prev + delta).toFixed(1))))
     }
   }
 
@@ -622,30 +670,61 @@ export function GeoreferenceWizard({
                 </p>
               </div>
 
-              {/* Zoom Controls */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 self-start sm:self-auto">
-                <span className="text-[10px] text-slate-500 font-semibold px-1">Zoom:</span>
+              {/* High-Precision Zoom Toolbar */}
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl shrink-0 self-start sm:self-auto border border-slate-200 shadow-sm">
+                <span className="text-[11px] text-slate-600 font-bold px-1 flex items-center gap-1">
+                  <ZoomIn className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Zoom:</span>
+                </span>
+
                 <button
                   type="button"
-                  onClick={() => setZoom(1)}
-                  className={`px-2 py-0.5 text-xs font-bold rounded ${zoom === 1 ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600'}`}
+                  onClick={() => setZoom(prev => Math.max(1, +(prev - 0.5).toFixed(1)))}
+                  className="w-7 h-7 bg-white hover:bg-slate-200 text-slate-800 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm transition-colors"
+                  title="Diminuir Zoom (-0.5x)"
                 >
-                  1x
+                  -
                 </button>
+
+                <span className="text-xs font-mono font-bold text-blue-700 px-1.5 min-w-[42px] text-center">
+                  {zoom.toFixed(1)}x
+                </span>
+
                 <button
                   type="button"
-                  onClick={() => setZoom(1.5)}
-                  className={`px-2 py-0.5 text-xs font-bold rounded ${zoom === 1.5 ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600'}`}
+                  onClick={() => setZoom(prev => Math.min(12, +(prev + 0.5).toFixed(1)))}
+                  className="w-7 h-7 bg-white hover:bg-slate-200 text-slate-800 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm transition-colors"
+                  title="Aumentar Zoom (+0.5x)"
                 >
-                  1.5x
+                  +
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setZoom(2)}
-                  className={`px-2 py-0.5 text-xs font-bold rounded ${zoom === 2 ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600'}`}
-                >
-                  2x
-                </button>
+
+                <div className="h-4 w-px bg-slate-300 mx-0.5" />
+
+                {[1, 2, 3, 4, 6, 8, 12].map(z => (
+                  <button
+                    key={z}
+                    type="button"
+                    onClick={() => setZoom(z)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                      Math.abs(zoom - z) < 0.25 
+                        ? 'bg-blue-600 text-white shadow-sm scale-105' 
+                        : 'bg-white hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {z}x
+                  </button>
+                ))}
+
+                {zoom > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setZoom(1)}
+                    className="px-2 py-1 text-[11px] text-red-600 hover:bg-red-50 rounded-lg font-bold transition-colors ml-1"
+                  >
+                    Reset (1x)
+                  </button>
+                )}
               </div>
             </div>
 
@@ -769,8 +848,15 @@ export function GeoreferenceWizard({
 
                 <div
                   ref={imageContainerRef}
-                  className="relative rounded-2xl border-2 border-slate-200 overflow-auto bg-slate-900 cursor-crosshair shadow-inner"
-                  style={{ maxHeight: '580px', minHeight: '420px' }}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onWheel={handleWheel}
+                  className={`relative rounded-2xl border-2 border-slate-200 overflow-auto bg-slate-900 shadow-inner select-none transition-colors ${
+                    isDragging ? 'cursor-grabbing' : zoom > 1 ? 'cursor-grab' : 'cursor-crosshair'
+                  }`}
+                  style={{ maxHeight: '760px', minHeight: '520px' }}
                 >
                   <div
                     className="relative inline-block min-w-full"
