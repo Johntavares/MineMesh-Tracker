@@ -49,6 +49,25 @@ export async function saveRepeater(data: FormData) {
 
   try {
     if (id) {
+      const existing = await prisma.repeater.findUnique({
+        where: { id },
+        select: { code: true, name: true, latitude: true, longitude: true }
+      })
+
+      if (existing) {
+        const codeUpper = (existing.code || '').toUpperCase()
+        const nameUpper = (existing.name || '').toUpperCase()
+        const isFixed = codeUpper.startsWith('ROOT') || nameUpper.startsWith('ROOT') || 
+                        codeUpper.includes('320') || nameUpper.includes('320')
+        if (isFixed) {
+          // Keep original fixed coordinates and code intact
+          payload.code = existing.code
+          payload.name = existing.name
+          payload.latitude = existing.latitude
+          payload.longitude = existing.longitude
+        }
+      }
+
       await prisma.repeater.update({
         where: { id },
         data: payload

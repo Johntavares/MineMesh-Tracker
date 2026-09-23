@@ -14,10 +14,16 @@ import {
   ZoomIn,
   ZoomOut,
   AlertCircle,
-  Loader2
+  Loader2,
+  Lock
 } from 'lucide-react'
 import { saveMineSettings } from '@/app/actions/mine'
 import { useTranslation } from '@/lib/i18n/client'
+
+export const isFixedReference = (name: string) => {
+  const upper = (name || '').toUpperCase()
+  return upper.startsWith('ROOT') || upper.includes('320')
+}
 
 interface Point {
   name: string
@@ -191,9 +197,27 @@ export function GeoreferenceWizard({
     }))
   }
 
+  const setPointToRepeater = (index: number, repeater: ReferenceRepeater) => {
+    setPoints(prev => prev.map((p, idx) => {
+      if (idx === index) {
+        return {
+          ...p,
+          name: repeater.code,
+          lat: repeater.latitude,
+          lng: repeater.longitude,
+        }
+      }
+      return p
+    }))
+  }
+
   const updatePointField = (index: number, field: keyof Point, value: any) => {
     setPoints(prev => prev.map((p, idx) => {
       if (idx === index) {
+        // Prevent manual change to coordinates of fixed points (ROOT and 320)
+        if ((field === 'lat' || field === 'lng') && isFixedReference(p.name)) {
+          return p
+        }
         return { ...p, [field]: value }
       }
       return p
@@ -646,8 +670,13 @@ function compressImageToDataUrl(file: File, maxDim = 2048, quality = 0.75): Prom
                           <input
                             type="text"
                             value={p.name}
+                            readOnly={isFixedReference(p.name)}
                             onChange={(e) => updatePointField(idx, 'name', e.target.value)}
-                            className="font-bold text-xs bg-transparent border-b border-transparent focus:border-slate-300 focus:outline-none text-slate-800 w-40"
+                            className={`font-bold text-xs bg-transparent border-b ${
+                              isFixedReference(p.name)
+                                ? 'border-transparent text-slate-800 cursor-default'
+                                : 'border-transparent focus:border-slate-300 focus:outline-none text-slate-800'
+                            } w-40`}
                             onClick={(e) => e.stopPropagation()}
                           />
                         </div>
@@ -676,41 +705,67 @@ function compressImageToDataUrl(file: File, maxDim = 2048, quality = 0.75): Prom
                             onChange={(e) => {
                               const selected = referenceRepeaters.find(r => r.id === e.target.value)
                               if (selected) {
-                                updatePointField(idx, 'name', selected.code)
-                                updatePointField(idx, 'lat', selected.latitude)
-                                updatePointField(idx, 'lng', selected.longitude)
+                                setPointToRepeater(idx, selected)
+                              } else {
+                                updatePointField(idx, 'name', `Ponto ${idx + 1}`)
                               }
                             }}
                           >
                             <option value="">-- Personalizado / Digitar manual --</option>
                             {referenceRepeaters.map((r) => (
                               <option key={r.id} value={r.id}>
-                                {r.code} {r.code.toLowerCase().includes('320') ? '⭐ (320 U&M Calibração)' : ''}
+                                {r.code} {r.code.toLowerCase().includes('320') ? '⭐ (320 U&M Calibração - Fixo)' : isFixedReference(r.code) ? '🔒 (Fixo)' : ''}
                               </option>
                             ))}
                           </select>
                         </div>
                       )}
 
+                      {/* Fixed reference warning */}
+                      {isFixedReference(p.name) && (
+                        <div className="mb-2 flex items-center gap-1.5 text-[10px] text-amber-800 bg-amber-50 px-2 py-1 rounded border border-amber-200 font-medium">
+                          <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>Coordenada de implantação fixa do operador (bloqueada)</span>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
                         <div>
-                          <label className="text-[9px] text-slate-400 font-semibold uppercase">Latitude</label>
+                          <label className="text-[9px] text-slate-400 font-semibold uppercase flex items-center gap-1">
+                            <span>Latitude</span>
+                            {isFixedReference(p.name) && <Lock className="w-2.5 h-2.5 text-amber-600" />}
+                          </label>
                           <input
                             type="number"
                             step="any"
                             value={p.lat}
+                            readOnly={isFixedReference(p.name)}
+                            disabled={isFixedReference(p.name)}
                             onChange={(e) => updatePointField(idx, 'lat', Number(e.target.value))}
-                            className="w-full text-xs border border-slate-200 rounded px-1.5 py-1 font-mono bg-white"
+                            className={`w-full text-xs border rounded px-1.5 py-1 font-mono ${
+                              isFixedReference(p.name)
+                                ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed select-none font-semibold'
+                                : 'bg-white text-slate-800 border-slate-200'
+                            }`}
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] text-slate-400 font-semibold uppercase">Longitude</label>
+                          <label className="text-[9px] text-slate-400 font-semibold uppercase flex items-center gap-1">
+                            <span>Longitude</span>
+                            {isFixedReference(p.name) && <Lock className="w-2.5 h-2.5 text-amber-600" />}
+                          </label>
                           <input
                             type="number"
                             step="any"
                             value={p.lng}
+                            readOnly={isFixedReference(p.name)}
+                            disabled={isFixedReference(p.name)}
                             onChange={(e) => updatePointField(idx, 'lng', Number(e.target.value))}
-                            className="w-full text-xs border border-slate-200 rounded px-1.5 py-1 font-mono bg-white"
+                            className={`w-full text-xs border rounded px-1.5 py-1 font-mono ${
+                              isFixedReference(p.name)
+                                ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed select-none font-semibold'
+                                : 'bg-white text-slate-800 border-slate-200'
+                            }`}
                           />
                         </div>
                       </div>

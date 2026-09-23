@@ -40,11 +40,24 @@ export async function updateRepeaterLocation(
   try {
     const session = await getServerSession(authOptions)
 
-    // Fetch old coordinates for detailed audit log
+    // Fetch old coordinates and check if repeater is fixed (ROOT or 320)
     const oldRepeater = await prisma.repeater.findUnique({
       where: { id },
-      select: { latitude: true, longitude: true, locationDescription: true }
+      select: { code: true, name: true, latitude: true, longitude: true, locationDescription: true }
     })
+
+    if (oldRepeater) {
+      const codeUpper = (oldRepeater.code || '').toUpperCase()
+      const nameUpper = (oldRepeater.name || '').toUpperCase()
+      const isFixed = codeUpper.startsWith('ROOT') || nameUpper.startsWith('ROOT') || 
+                      codeUpper.includes('320') || nameUpper.includes('320')
+      if (isFixed) {
+        return { 
+          success: false, 
+          error: 'As coordenadas de repetidoras ROOT e 320 U&M são fixas de implantação e não podem ser alteradas.' 
+        }
+      }
+    }
 
     // Perform update
     const updated = await prisma.repeater.update({

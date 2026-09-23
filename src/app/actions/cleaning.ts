@@ -41,7 +41,7 @@ export async function saveCleaning(formData: FormData) {
 
     const repeater = await prisma.repeater.findUnique({
       where: { id: repeaterId },
-      select: { id: true, code: true, mineId: true }
+      select: { id: true, code: true, name: true, mineId: true }
     })
 
     if (!repeater) {
@@ -197,8 +197,13 @@ export async function saveCleaning(formData: FormData) {
       },
     })
 
-    // Atualiza a localização da repetidora apenas se for OPERADOR em campo (uploads de ADMIN não alteram a localização da RPT)
-    if (!isAdmin && latitude !== null && longitude !== null) {
+    const isFixed = repeater.code.toUpperCase().startsWith('ROOT') || 
+                    repeater.name.toUpperCase().startsWith('ROOT') || 
+                    repeater.code.toLowerCase().includes('320') || 
+                    repeater.name.toLowerCase().includes('320')
+
+    // Atualiza a localização da repetidora apenas se for OPERADOR em campo e se NÃO for repetidora fixa/root/320
+    if (!isAdmin && !isFixed && latitude !== null && longitude !== null) {
       await updateRepeaterLocation(repeaterId, latitude, longitude)
     }
 
