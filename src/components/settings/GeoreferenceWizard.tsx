@@ -16,7 +16,11 @@ import {
   Sparkles,
   Navigation,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Plus,
+  Trash2,
+  Crosshair,
+  Activity
 } from 'lucide-react'
 import { saveMineSettings } from '@/app/actions/mine'
 
@@ -37,6 +41,7 @@ interface Point {
   y: number // percent from top (0 - 100)
   lat: number
   lng: number
+  errorMeters?: number
 }
 
 interface GeoreferenceWizardProps {
@@ -57,6 +62,18 @@ interface GeoreferenceWizardProps {
   referenceRepeaters?: ReferenceRepeater[]
   lang: string
 }
+
+// Color palette for points
+const POINT_COLORS = [
+  { bg: 'bg-emerald-600', text: 'text-emerald-600', border: 'border-emerald-500', hex: '#059669', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { bg: 'bg-blue-600', text: 'text-blue-600', border: 'border-blue-500', hex: '#2563EB', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { bg: 'bg-purple-600', text: 'text-purple-600', border: 'border-purple-500', hex: '#7C3AED', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { bg: 'bg-amber-600', text: 'text-amber-600', border: 'border-amber-500', hex: '#D97706', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { bg: 'bg-rose-600', text: 'text-rose-600', border: 'border-rose-500', hex: '#E11D48', badge: 'bg-rose-50 text-rose-700 border-rose-200' },
+  { bg: 'bg-cyan-600', text: 'text-cyan-600', border: 'border-cyan-500', hex: '#0891B2', badge: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  { bg: 'bg-indigo-600', text: 'text-indigo-600', border: 'border-indigo-500', hex: '#4F46E5', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { bg: 'bg-teal-600', text: 'text-teal-600', border: 'border-teal-500', hex: '#0D9488', badge: 'bg-teal-50 text-teal-700 border-teal-200' },
+]
 
 // Utility: Rotate any DataURL by 90 degrees clockwise using Canvas
 function rotateDataUrl90(dataUrl: string): Promise<string> {
@@ -185,7 +202,7 @@ export function GeoreferenceWizard({
   referenceRepeaters = [],
   lang
 }: GeoreferenceWizardProps) {
-  // Steps: 1 = Upload, 2 = Calibrate (320 + ROOT), 3 = Confirm & Save
+  // Steps: 1 = Upload, 2 = Calibrate (320 + ROOTs), 3 = Confirm & Save
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [processingFile, setProcessingFile] = useState(false)
@@ -200,13 +217,14 @@ export function GeoreferenceWizard({
   const imageContainerRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
 
-  // Calibration points: Point 1 (320 U&M) and Point 2 (ROOT)
+  // Calibration points: Point 1 (320 U&M), Point 2 (ROOT) + optional additional ROOTs
   const [points, setPoints] = useState<Point[]>([])
   const [activePointIndex, setActivePointIndex] = useState<number>(0)
 
   // Calculated Results
   const [calculatedBounds, setCalculatedBounds] = useState<[[number, number], [number, number]] | null>(null)
   const [calculatedCenter, setCalculatedCenter] = useState<[number, number] | null>(null)
+  const [calibrationRmse, setCalibrationRmse] = useState<number | null>(null)
 
   // Pan / Drag State for zoomed map
   const [isDragging, setIsDragging] = useState(false)
@@ -241,6 +259,41 @@ export function GeoreferenceWizard({
       }
     ])
   }, [referenceRepeaters])
+
+  // Handle adding another ROOT reference point
+  const handleAddPoint = () => {
+    const usedIds = new Set(points.map(p => p.repeaterId).filter(Boolean))
+    const available = referenceRepeaters.filter(r => !usedIds.has(r.id))
+    const candidate = available.find(r => r.code.toUpperCase().startsWith('ROOT')) || available[0]
+
+    const newIdx = points.length
+    const fallbackLat = -5.7946
+    const fallbackLng = -50.5352
+
+    const newPoint: Point = {
+      name: candidate ? candidate.code : `ROOT Ponto ${newIdx + 1}`,
+      repeaterId: candidate?.id,
+      x: Math.min(85, Math.max(15, 50 + ((newIdx % 3) - 1) * 18)),
+      y: Math.min(85, Math.max(15, 50 + Math.floor(newIdx / 3) * 14)),
+      lat: candidate?.latitude ?? fallbackLat,
+      lng: candidate?.longitude ?? fallbackLng,
+    }
+
+    setPoints(prev => [...prev, newPoint])
+    setActivePointIndex(newIdx)
+  }
+
+  // Handle removing a reference point
+  const handleRemovePoint = (indexToRemove: number) => {
+    if (points.length <= 2) {
+      alert('São necessários pelo menos 2 pontos de referência para calibrar o mapa.')
+      return
+    }
+    setPoints(prev => prev.filter((_, idx) => idx !== indexToRemove))
+    if (activePointIndex >= indexToRemove) {
+      setActivePointIndex(Math.max(0, activePointIndex - 1))
+    }
+  }
 
   // Handle file selection (Image or PDF)
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -323,10 +376,8 @@ export function GeoreferenceWizard({
       return p
     }))
 
-    // Automatically toggle to second point for convenience
-    if (activePointIndex === 0 && points.length > 1) {
-      setActivePointIndex(1)
-    }
+    // Automatically advance to the next point in sequence
+    setActivePointIndex(prev => (prev + 1) % points.length)
   }
 
   // Pan handlers when zoomed
@@ -398,75 +449,118 @@ export function GeoreferenceWizard({
     }))
   }
 
-  // Calculate georeference: map adapts to fixed GPS coordinates with 100% preserved aspect ratio
+  // Multi-Point Least-Squares Georeferencing
+  // Finds global optimal isotropic scale and centroid alignment across all reference points (320 U&M + all ROOTs)
   const handleCalculateCalibration = () => {
-    if (points.length < 2) return
-
-    const p1 = points[0]
-    const p2 = points[1]
-
-    // Real dimensions of the image in pixels
-    const imgWidth = imageRef.current?.naturalWidth || 2000
-    const imgHeight = imageRef.current?.naturalHeight || 1200
-
-    // Geographic constants at the mine's latitude
-    const midLat = (p1.lat + p2.lat) / 2
-    const latRad = (midLat * Math.PI) / 180
-    const metersPerDegLat = 111320
-    const metersPerDegLng = 111320 * Math.cos(latRad)
-
-    // True ground distance between Point 1 and Point 2 in meters
-    const deltaEastMeters = (p2.lng - p1.lng) * metersPerDegLng
-    const deltaNorthMeters = (p2.lat - p1.lat) * metersPerDegLat
-    const groundDistanceMeters = Math.sqrt(deltaEastMeters * deltaEastMeters + deltaNorthMeters * deltaNorthMeters)
-
-    // Pixel distance between Point 1 and Point 2
-    const px1 = (p1.x / 100) * imgWidth
-    const py1 = (p1.y / 100) * imgHeight
-    const px2 = (p2.x / 100) * imgWidth
-    const py2 = (p2.y / 100) * imgHeight
-
-    const deltaXPixels = px2 - px1
-    const deltaYPixels = py2 - py1
-    const pixelDistance = Math.sqrt(deltaXPixels * deltaXPixels + deltaYPixels * deltaYPixels)
-
-    if (pixelDistance < 10) {
-      alert('Os pontos 320 U&M e ROOT estão muito próximos na imagem. Marque as duas posições com clareza.')
+    if (points.length < 2) {
+      alert('Marque pelo menos 2 pontos de referência para calibrar.')
       return
     }
 
-    // Isotropic Scale: Uniform meters per pixel (guarantees zero distortion and preserves 100% natural proportions)
-    const metersPerPixel = groundDistanceMeters / pixelDistance
+    const imgWidth = imageRef.current?.naturalWidth || 2048
+    const imgHeight = imageRef.current?.naturalHeight || 1467
+    const N = points.length
 
-    // Total ground dimensions of the entire image preserving exact aspect ratio
+    // Centroid of GPS coordinates
+    const meanLat = points.reduce((acc, p) => acc + p.lat, 0) / N
+    const meanLng = points.reduce((acc, p) => acc + p.lng, 0) / N
+    const latRad = (meanLat * Math.PI) / 180
+    const metersPerDegLat = 111320
+    const metersPerDegLng = 111320 * Math.cos(latRad)
+
+    // Real ground coordinates (E, N) in meters relative to GPS centroid
+    const groundPts = points.map(p => ({
+      E: (p.lng - meanLng) * metersPerDegLng,
+      N: (p.lat - meanLat) * metersPerDegLat
+    }))
+
+    // Centroid of image pixel coordinates
+    const pixelPts = points.map(p => ({
+      px: (p.x / 100) * imgWidth,
+      py: (p.y / 100) * imgHeight
+    }))
+    const meanPx = pixelPts.reduce((acc, p) => acc + p.px, 0) / N
+    const meanPy = pixelPts.reduce((acc, p) => acc + p.py, 0) / N
+
+    // Image coordinates relative to pixel centroid:
+    // u = East (px - meanPx), v = North (-(py - meanPy))
+    const relPixelPts = pixelPts.map(p => ({
+      u: p.px - meanPx,
+      v: -(p.py - meanPy)
+    }))
+
+    // Least Squares optimal isotropic scale s (meters per pixel):
+    // Minimizes sum( (u_i*s - E_i)^2 + (v_i*s - N_i)^2 )
+    let numerator = 0
+    let denominator = 0
+    for (let i = 0; i < N; i++) {
+      const { u, v } = relPixelPts[i]
+      const { E, N: nGround } = groundPts[i]
+      numerator += u * E + v * nGround
+      denominator += u * u + v * v
+    }
+
+    let metersPerPixel = denominator > 0 ? numerator / denominator : 0
+
+    // Fallback if points are coincident or inverse
+    if (metersPerPixel <= 0 || !isFinite(metersPerPixel)) {
+      let totalGDist = 0
+      let totalPDist = 0
+      for (let i = 0; i < N; i++) {
+        for (let j = i + 1; j < N; j++) {
+          const dE = groundPts[i].E - groundPts[j].E
+          const dN = groundPts[i].N - groundPts[j].N
+          totalGDist += Math.sqrt(dE * dE + dN * dN)
+
+          const du = pixelPts[i].px - pixelPts[j].px
+          const dv = pixelPts[i].py - pixelPts[j].py
+          totalPDist += Math.sqrt(du * du + dv * dv)
+        }
+      }
+      metersPerPixel = totalPDist > 0 ? totalGDist / totalPDist : 0.75
+    }
+
+    // Offset from pixel centroid to image center (0.5 * imgWidth, 0.5 * imgHeight)
+    const duCenter = 0.5 * imgWidth - meanPx
+    const dvCenter = -(0.5 * imgHeight - meanPy)
+
+    const centerEastMeters = duCenter * metersPerPixel
+    const centerNorthMeters = dvCenter * metersPerPixel
+
+    const centerLat = meanLat + centerNorthMeters / metersPerDegLat
+    const centerLng = meanLng + centerEastMeters / metersPerDegLng
+
+    // Total ground dimensions preserving 100% natural aspect ratio
     const totalWidthMeters = imgWidth * metersPerPixel
     const totalHeightMeters = imgHeight * metersPerPixel
 
-    // Angular span in degrees (conformal Web Mercator)
     const spanLat = totalHeightMeters / metersPerDegLat
     const spanLng = totalWidthMeters / metersPerDegLng
 
-    // Offset from Point 1 to the image center (in pixels)
-    // Note: on image canvas, Y increases downwards, so North is negative Y
-    const offsetXFromP1 = (0.5 * imgWidth) - px1
-    const offsetYFromP1 = (0.5 * imgHeight) - py1
-
-    const offsetEastMeters = offsetXFromP1 * metersPerPixel
-    const offsetNorthMeters = -offsetYFromP1 * metersPerPixel
-
-    // Geographic center of the image
-    const centerLat = p1.lat + (offsetNorthMeters / metersPerDegLat)
-    const centerLng = p1.lng + (offsetEastMeters / metersPerDegLng)
-
-    // Image bounds preserving exact 1:1 real proportions
     const bounds: [[number, number], [number, number]] = [
-      [centerLat - spanLat / 2, centerLng - spanLng / 2], // Southwest [lat, lng]
-      [centerLat + spanLat / 2, centerLng + spanLng / 2]  // Northeast [lat, lng]
+      [centerLat - spanLat / 2, centerLng - spanLng / 2],
+      [centerLat + spanLat / 2, centerLng + spanLng / 2]
     ]
 
+    // Calculate individual point error (residuals) in meters
+    const updatedPoints = points.map((p) => {
+      const predLng = bounds[0][1] + (p.x / 100) * spanLng
+      const predLat = bounds[1][0] - (p.y / 100) * spanLat
+      const dE = (predLng - p.lng) * metersPerDegLng
+      const dN = (predLat - p.lat) * metersPerDegLat
+      const err = Math.sqrt(dE * dE + dN * dN)
+      return { ...p, errorMeters: err }
+    })
+
+    const rmse = Math.sqrt(
+      updatedPoints.reduce((acc, p) => acc + (p.errorMeters || 0) ** 2, 0) / N
+    )
+
+    setPoints(updatedPoints)
+    setCalibrationRmse(rmse)
     setCalculatedBounds(bounds)
     setCalculatedCenter([centerLat, centerLng])
-    setStep(3) // Advance directly to save step
+    setStep(3) // Advance to confirm and save
   }
 
   // Handle final save
@@ -488,13 +582,12 @@ export function GeoreferenceWizard({
       formData.append('gridResolution', currentGridResolution.toString())
       formData.append('imageBounds', JSON.stringify(calculatedBounds))
       formData.append('currentImageUrl', currentImageUrl)
-      formData.append('calibrationAccuracy', '0')
+      formData.append('calibrationAccuracy', calibrationRmse ? Math.round(calibrationRmse).toString() : '0')
       formData.append('heatRadius', currentHeatRadius.toString())
       formData.append('heatBlur', currentHeatBlur.toString())
       formData.append('heatIntensity', currentHeatIntensity.toString())
 
       if (isNewImage && imagePreviewUrl) {
-        // Compress client-side to ensure it is always under 2MB
         const compressedDataUrl = await compressForServer(imagePreviewUrl)
         formData.append('imageDataUrl', compressedDataUrl)
       }
@@ -529,7 +622,7 @@ export function GeoreferenceWizard({
               Atualização & Calibração do Mapa da Mina
             </h2>
             <p className="text-xs text-slate-500">
-              Processo simplificado em 3 passos para alinhar ortofoto e repetidoras
+              Calibração multi-pontos com 320 U&M e ROOTs para alinhamento perfeito
             </p>
           </div>
         </div>
@@ -545,7 +638,7 @@ export function GeoreferenceWizard({
           <span className={`px-3 py-1 rounded-full transition-colors ${
             step === 2 ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-200 text-slate-600'
           }`}>
-            2. Calibrar (320 e ROOT)
+            2. Calibrar ({points.length} Pontos)
           </span>
           <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
           <span className={`px-3 py-1 rounded-full transition-colors ${
@@ -657,16 +750,16 @@ export function GeoreferenceWizard({
           </div>
         )}
 
-        {/* ================= STEP 2: CALIBRATE WITH 320 AND ROOTS ================= */}
+        {/* ================= STEP 2: CALIBRATE WITH 320 AND MULTIPLE ROOTS ================= */}
         {step === 2 && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
               <div>
                 <h3 className="text-base font-bold text-slate-800">
-                  Aponte os Pontos de Referência na Planta
+                  Pontos de Referência na Planta ({points.length} pontos)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  O mapa se adapta aos pontos fixos da mina. Basta clicar onde fica o <strong>320 U&M</strong> e o <strong>ROOT</strong>.
+                  O mapa se adapta às coordenadas fixas da mina. Adicione outros <strong>ROOTs</strong> para aumentar a precisão.
                 </p>
               </div>
 
@@ -731,97 +824,119 @@ export function GeoreferenceWizard({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               {/* Left Column: Reference Points Selector */}
               <div className="lg:col-span-4 space-y-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Pontos de Referência Fixos
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Pontos de Apoio ({points.length})
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAddPoint}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition-colors shadow-sm"
+                    title="Adicionar outro ROOT para refinar o alinhamento"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar ROOT</span>
+                  </button>
+                </div>
 
-                {points.map((p, idx) => {
-                  const isActive = activePointIndex === idx
+                <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+                  {points.map((p, idx) => {
+                    const isActive = activePointIndex === idx
+                    const colorScheme = POINT_COLORS[idx % POINT_COLORS.length]
 
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => setActivePointIndex(idx)}
-                      className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer ${
-                        isActive 
-                          ? 'border-blue-600 bg-blue-50/60 shadow-sm ring-1 ring-blue-500' 
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                            idx === 0 ? 'bg-emerald-600' : 'bg-blue-600'
-                          }`}>
-                            {idx + 1}
-                          </span>
-                          <div>
-                            <p className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                              {p.name}
-                              <Lock className="w-3 h-3 text-amber-600" />
-                            </p>
-                            <p className="text-[10px] text-slate-400 font-mono">
-                              GPS: {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
-                            </p>
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setActivePointIndex(idx)}
+                        className={`p-3 rounded-xl border-2 transition-all cursor-pointer relative ${
+                          isActive 
+                            ? 'border-blue-600 bg-blue-50/60 shadow-sm ring-1 ring-blue-500' 
+                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${colorScheme.bg}`}>
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <p className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                                {p.name}
+                                <Lock className="w-3 h-3 text-amber-600" />
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-mono">
+                                GPS: {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {isActive && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-600 text-white rounded-full">
+                                Marcando
+                              </span>
+                            )}
+                            {idx >= 2 && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRemovePoint(idx)
+                                }}
+                                className="w-6 h-6 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded flex items-center justify-center transition-colors"
+                                title="Remover este ponto"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
-                        {isActive && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-600 text-white rounded-full">
-                            Ativo
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Dropdown to change ROOT if needed */}
-                      {idx > 0 && referenceRepeaters.length > 0 && (
-                        <div className="mt-2.5 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                          <label className="text-[10px] text-slate-500 font-semibold block mb-1">
-                            Alterar repetidora de apoio:
-                          </label>
-                          <select
-                            value={p.repeaterId || ''}
-                            onChange={(e) => handleSelectRepeater(idx, e.target.value)}
-                            className="w-full text-xs border border-slate-300 rounded px-2 py-1 bg-white font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                          >
-                            {referenceRepeaters
-                              .filter(r => !r.code.includes('320'))
-                              .map(r => (
+                        {/* Dropdown to change ROOT repeater */}
+                        {referenceRepeaters.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                            <label className="text-[10px] text-slate-500 font-semibold block mb-1">
+                              Repetidora associada:
+                            </label>
+                            <select
+                              value={p.repeaterId || ''}
+                              onChange={(e) => handleSelectRepeater(idx, e.target.value)}
+                              className="w-full text-xs border border-slate-300 rounded px-2 py-1 bg-white font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                            >
+                              {referenceRepeaters.map(r => (
                                 <option key={r.id} value={r.id}>
-                                  {r.code} {r.code.startsWith('ROOT') ? '(ROOT Fixo)' : ''}
+                                  {r.code} {r.code.startsWith('ROOT') ? '(ROOT)' : r.code.includes('320') ? '(320 U&M)' : ''}
                                 </option>
                               ))}
-                          </select>
-                        </div>
-                      )}
+                            </select>
+                          </div>
+                        )}
 
-                      {/* Position & Nudge Buttons */}
-                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500" onClick={(e) => e.stopPropagation()}>
-                        <span>Posição na imagem: <strong>{p.x.toFixed(1)}%, {p.y.toFixed(1)}%</strong></span>
-                        <div className="flex items-center gap-0.5">
-                          <button type="button" onClick={() => nudgePoint(idx, 0, -0.3)} className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded font-bold text-xs" title="Cima">↑</button>
-                          <button type="button" onClick={() => nudgePoint(idx, 0, 0.3)} className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded font-bold text-xs" title="Baixo">↓</button>
-                          <button type="button" onClick={() => nudgePoint(idx, -0.3, 0)} className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded font-bold text-xs" title="Esquerda">←</button>
-                          <button type="button" onClick={() => nudgePoint(idx, 0.3, 0)} className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded font-bold text-xs" title="Direita">→</button>
+                        {/* Position & Nudge Buttons */}
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500" onClick={(e) => e.stopPropagation()}>
+                          <span>Posição: <strong>{p.x.toFixed(1)}%, {p.y.toFixed(1)}%</strong></span>
+                          <div className="flex items-center gap-0.5">
+                            <button type="button" onClick={() => nudgePoint(idx, 0, -0.3)} className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded font-bold text-xs" title="Cima">↑</button>
+                            <button type="button" onClick={() => nudgePoint(idx, 0, 0.3)} className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded font-bold text-xs" title="Baixo">↓</button>
+                            <button type="button" onClick={() => nudgePoint(idx, -0.3, 0)} className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded font-bold text-xs" title="Esquerda">←</button>
+                            <button type="button" onClick={() => nudgePoint(idx, 0.3, 0)} className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded font-bold text-xs" title="Direita">→</button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
 
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800 space-y-1">
                   <div className="flex items-center gap-1 font-bold">
                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Como funciona:</span>
+                    <span>Dica de Alta Precisão:</span>
                   </div>
                   <p>
-                    1. Clique no <strong>Ponto 1 ({points[0]?.name})</strong> e dê 1 clique sobre o local dele na foto da mina.
+                    Com <strong>{points.length} pontos</strong> selecionados, o sistema usa ajuste global por Mínimos Quadrados.
                   </p>
                   <p>
-                    2. Clique no <strong>Ponto 2 ({points[1]?.name})</strong> e dê 1 clique sobre ele.
-                  </p>
-                  <p>
-                    As coordenadas de GPS já são conhecidas de implantação. O mapa será esticado e alinhado exatamente sob os pontos.
+                    Quanto mais ROOTs você marcar (ex: SE-2002 no norte, P. Montagem no sul, Caixa d'Água no leste), mais preciso fica o encaixe de todas as repetidoras.
                   </p>
                 </div>
 
@@ -831,18 +946,21 @@ export function GeoreferenceWizard({
                   className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-sm transition-all"
                 >
                   <Calculator className="w-4 h-4" />
-                  <span>Calcular Encaixe do Mapa</span>
+                  <span>Calcular Encaixe com {points.length} Pontos</span>
                 </button>
               </div>
 
               {/* Right Column: Interactive Canvas */}
               <div className="lg:col-span-8 flex flex-col">
                 <div className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
-                  <span>
-                    Marcando agora: <strong className="text-blue-600 font-bold">{points[activePointIndex]?.name}</strong> (clique na imagem abaixo)
+                  <span className="flex items-center gap-1.5">
+                    <Crosshair className="w-4 h-4 text-blue-600" />
+                    <span>
+                      Marcando agora: <strong className="text-blue-600 font-bold">{points[activePointIndex]?.name}</strong> (Ponto #{activePointIndex + 1})
+                    </span>
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    Use o Zoom para ver torres e estruturas em detalhe
+                    Clique na imagem para posicionar
                   </span>
                 </div>
 
@@ -876,22 +994,31 @@ export function GeoreferenceWizard({
                     />
 
                     {/* Reference Point Markers */}
-                    {points.map((p, idx) => (
-                      <div
-                        key={idx}
-                        className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none pointer-events-none z-20"
-                        style={{ left: `${p.x}%`, top: `${p.y}%` }}
-                      >
-                        <MapPin
-                          className={`w-7 h-7 drop-shadow-lg ${
-                            activePointIndex === idx ? 'text-red-500 scale-125 animate-bounce' : idx === 0 ? 'text-emerald-500' : 'text-blue-500'
-                          } transition-all`}
-                        />
-                        <span className="bg-slate-950/90 text-white font-bold text-[10px] px-2 py-0.5 rounded shadow whitespace-nowrap border border-slate-700 mt-0.5">
-                          {p.name}
-                        </span>
-                      </div>
-                    ))}
+                    {points.map((p, idx) => {
+                      const colorScheme = POINT_COLORS[idx % POINT_COLORS.length]
+                      const isActive = activePointIndex === idx
+
+                      return (
+                        <div
+                          key={idx}
+                          className="absolute transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none pointer-events-none z-20"
+                          style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                        >
+                          <div className={`relative flex items-center justify-center ${isActive ? 'animate-bounce' : ''}`}>
+                            <MapPin
+                              className="w-8 h-8 drop-shadow-lg"
+                              style={{ color: colorScheme.hex }}
+                            />
+                            <span className="absolute top-1 text-[10px] font-black text-white">
+                              {idx + 1}
+                            </span>
+                          </div>
+                          <span className="bg-slate-950/90 text-white font-bold text-[10px] px-2 py-0.5 rounded shadow whitespace-nowrap border border-slate-700 mt-0.5">
+                            {p.name}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               </div>
@@ -921,32 +1048,48 @@ export function GeoreferenceWizard({
                 Calibração Concluída com Sucesso!
               </h3>
               <p className="text-sm text-slate-500">
-                O mapa foi posicionado horizontalmente e alinhado aos pontos fixos da mina.
+                Ajuste global por Mínimos Quadrados calculado com {points.length} pontos de referência.
               </p>
             </div>
 
             {/* Calibration Summary Card */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3.5">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Resumo dos Ajustes
-              </h4>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Âncora Primária</span>
-                  <span className="font-bold text-slate-800">{points[0]?.name}</span>
-                  <span className="text-[10px] text-slate-500 block font-mono mt-0.5">
-                    {points[0]?.lat.toFixed(5)}, {points[0]?.lng.toFixed(5)}
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Pontos Calibrados & Precisão
+                </h4>
+                {calibrationRmse !== null && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold">
+                    <Activity className="w-3.5 h-3.5" />
+                    Precisão Média: ±{calibrationRmse.toFixed(1)} metros
                   </span>
-                </div>
+                )}
+              </div>
 
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Âncora Secundária</span>
-                  <span className="font-bold text-slate-800">{points[1]?.name}</span>
-                  <span className="text-[10px] text-slate-500 block font-mono mt-0.5">
-                    {points[1]?.lat.toFixed(5)}, {points[1]?.lng.toFixed(5)}
-                  </span>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs max-h-60 overflow-y-auto pr-1">
+                {points.map((p, idx) => {
+                  const colorScheme = POINT_COLORS[idx % POINT_COLORS.length]
+                  return (
+                    <div key={idx} className="p-3 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${colorScheme.bg}`}>
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <span className="font-bold text-slate-800 block">{p.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
+                          </span>
+                        </div>
+                      </div>
+                      {p.errorMeters !== undefined && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold">
+                          Desvio: {p.errorMeters.toFixed(1)}m
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               {calculatedCenter && (
@@ -958,7 +1101,7 @@ export function GeoreferenceWizard({
                     </span>
                   </div>
                   <span className="px-2.5 py-1 bg-blue-600 text-white font-bold rounded-lg text-[10px]">
-                    Horizontal OK
+                    Proporção Real 1:1 OK
                   </span>
                 </div>
               )}
