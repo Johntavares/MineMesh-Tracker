@@ -344,6 +344,67 @@ export function GeoreferenceWizard({
     setStep(4) // Advance to preview/results step
   }
 
+function compressImageToDataUrl(file: File, maxDim = 2048, quality = 0.75): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        let width = img.width
+        let height = img.height
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width)
+            width = maxDim
+          } else {
+            width = Math.round((width * maxDim) / height)
+            height = maxDim
+          }
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('Falha ao inicializar contexto gráfico para processar imagem.'))
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+        let q = quality
+        let dataUrl = canvas.toDataURL('image/jpeg', q)
+
+        // Ensure payload is under 2.2MB to avoid Netlify/Lambda 6MB limits
+        while (dataUrl.length > 2.2 * 1024 * 1024 && q > 0.35) {
+          q -= 0.12
+          dataUrl = canvas.toDataURL('image/jpeg', q)
+        }
+
+        // If still large, scale down canvas resolution
+        if (dataUrl.length > 2.2 * 1024 * 1024) {
+          const smallCanvas = document.createElement('canvas')
+          const scale = 1400 / Math.max(width, height)
+          smallCanvas.width = Math.round(width * scale)
+          smallCanvas.height = Math.round(height * scale)
+          const sCtx = smallCanvas.getContext('2d')
+          if (sCtx) {
+            sCtx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height)
+            dataUrl = smallCanvas.toDataURL('image/jpeg', 0.65)
+          }
+        }
+
+        resolve(dataUrl)
+      }
+      img.onerror = () => reject(new Error('Erro ao carregar formato da imagem no navegador.'))
+      img.src = e.target?.result as string
+    }
+    reader.onerror = () => reject(new Error('Erro ao ler arquivo da imagem.'))
+    reader.readAsDataURL(file)
+  })
+}
+
   // Handle final save
   const handleSave = async () => {
     if (!calculatedBounds || !calculatedCenter) return
@@ -351,30 +412,37 @@ export function GeoreferenceWizard({
     setLoading(true)
     setMessage('')
 
-    const formData = new FormData()
-    formData.append('id', mineId)
-    formData.append('name', name)
-    formData.append('description', description)
-    formData.append('opacity', opacity.toString())
-    formData.append('centerLat', calculatedCenter[0].toString())
-    formData.append('centerLng', calculatedCenter[1].toString())
-    formData.append('defaultZoom', '14')
-    formData.append('gridResolution', gridResolution.toString())
-    formData.append('imageBounds', JSON.stringify(calculatedBounds))
-    formData.append('currentImageUrl', currentImageUrl)
-    formData.append('calibrationAccuracy', calculatedAccuracy !== null ? calculatedAccuracy.toString() : '')
-    formData.append('terrainEnabled', terrainEnabled.toString())
-    formData.append('terrainSource', terrainSource)
-    formData.append('terrainResolution', terrainResolution.toString())
-    formData.append('heatRadius', heatRadius.toString())
-    formData.append('heatBlur', heatBlur.toString())
-    formData.append('heatIntensity', heatIntensity.toString())
-
-    if (imageFile) {
-      formData.append('image', imageFile)
-    }
-
     try {
+      const formData = new FormData()
+      formData.append('id', mineId)
+      formData.append('name', name)
+      formData.append('description', description)
+      formData.append('opacity', opacity.toString())
+      formData.append('centerLat', calculatedCenter[0].toString())
+      formData.append('centerLng', calculatedCenter[1].toString())
+      formData.append('defaultZoom', '14')
+      formData.append('gridResolution', gridResolution.toString())
+      formData.append('imageBounds', JSON.stringify(calculatedBounds))
+      formData.append('currentImageUrl', currentImageUrl)
+      formData.append('calibrationAccuracy', calculatedAccuracy !== null ? calculatedAccuracy.toString() : '')
+      formData.append('terrainEnabled', terrainEnabled.toString())
+      formData.append('terrainSource', terrainSource)
+      formData.append('terrainResolution', terrainResolution.toString())
+      formData.append('heatRadius', heatRadius.toString())
+      formData.append('heatBlur', heatBlur.toString())
+      formData.append('heatIntensity', heatIntensity.toString())
+
+      if (imageFile) {
+        // Compress client-side into lightweight base64 JPEG to bypass Netlify/AWS Lambda 6MB payload limit and EROFS
+        try {
+          const compressedDataUrl = await compressImageToDataUrl(imageFile)
+          formData.append('imageDataUrl', compressedDataUrl)
+        } catch (compErr) {
+          console.error('Falha na compressão da imagem:', compErr)
+          throw new Error('Não foi possível otimizar a imagem selecionada. Experimente um formato JPG/PNG padrão.')
+        }
+      }
+
       const res = await saveMineSettings(formData)
       if (res.success) {
         setMessage('Mina georreferenciada e salva com sucesso!')
@@ -385,8 +453,8 @@ export function GeoreferenceWizard({
         setMessage(res.error || 'Erro ao salvar configurações.')
       }
     } catch (err) {
-      console.error(err)
-      setMessage(err instanceof Error ? `Erro: ${err.message}` : 'Erro de conexão ao salvar mapa.')
+      console.error('Error saving mine:', err)
+      setMessage(err instanceof Error ? `Erro: ${err.message}` : 'Erro ao processar resposta do servidor.')
     } finally {
       setLoading(false)
     }

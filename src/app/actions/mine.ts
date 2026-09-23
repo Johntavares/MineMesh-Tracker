@@ -52,21 +52,27 @@ export async function saveMineSettings(data: FormData) {
     const heatIntensity = Number(data.get('heatIntensity')) || 0.8
 
     const file = data.get('image') as File | null
-    let imageUrl = (data.get('currentImageUrl') as string) || '/uploads/placeholder.png'
+    const imageDataUrl = data.get('imageDataUrl') as string | null
+    let imageUrl = imageDataUrl || (data.get('currentImageUrl') as string) || '/uploads/placeholder.png'
 
-    // Save uploaded image to public/uploads
-    if (file && file.size > 0) {
-      const bytes = await file.arrayBuffer()
-      const buffer = Buffer.from(bytes)
+    // If an image file was provided and no imageDataUrl, try saving to public/uploads (local dev)
+    // Never fail if filesystem is read-only (e.g. Netlify/Vercel serverless)
+    if (!imageDataUrl && file && file.size > 0) {
+      try {
+        const bytes = await file.arrayBuffer()
+        const buffer = Buffer.from(bytes)
 
-      const uploadDir = join(process.cwd(), 'public', 'uploads')
-      await mkdir(uploadDir, { recursive: true })
+        const uploadDir = join(process.cwd(), 'public', 'uploads')
+        await mkdir(uploadDir, { recursive: true })
 
-      const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`
-      const path = join(uploadDir, filename)
-      
-      await writeFile(path, buffer)
-      imageUrl = `/uploads/${filename}`
+        const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`
+        const path = join(uploadDir, filename)
+        
+        await writeFile(path, buffer)
+        imageUrl = `/uploads/${filename}`
+      } catch (fsErr) {
+        console.warn('[MINE] Filesystem write failed in serverless, falling back to existing image:', fsErr)
+      }
     }
 
     const payload = {
