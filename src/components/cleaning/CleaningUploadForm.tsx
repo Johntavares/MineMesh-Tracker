@@ -86,16 +86,15 @@ export function CleaningUploadForm({
           ? t('cleaning.changePhoto')
           : isAdmin
           ? 'Selecionar ou Tirar Foto (Admin)'
-          : 'Tirar Foto em Tempo Real (Câmera)'}
+          : 'Tirar Foto ou Escolher da Galeria'}
       </button>
 
-      {/* Para operador: capture='environment' aciona diretamente a câmera do celular */}
+      {/* Input de arquivo sem restrição forçada de capture, permitindo câmera ou galeria */}
       <input
         ref={fileRef}
         type="file"
         name="photo"
         accept="image/jpeg,image/png,image/webp,image/heic"
-        capture={isAdmin ? undefined : 'environment'}
         className="hidden"
         onChange={handleFileChange}
       />
@@ -129,7 +128,7 @@ export function CleaningUploadForm({
           <div className="space-y-0.5">
             <p className="font-semibold text-blue-900">Modo Administrador Habilitado</p>
             <p className="text-[11px] text-blue-700">
-              Você pode realizar uploads retroativos a qualquer momento, incluindo imagens da galeria ou fotos sem restrição de data/horário.
+              Você pode realizar uploads retroativos a qualquer momento, incluindo imagens da galeria ou fotos sem restrição de data/horário. A localização da repetidora no mapa não será alterada.
             </p>
           </div>
         </div>
@@ -137,9 +136,9 @@ export function CleaningUploadForm({
         <div className="flex items-start gap-2 text-xs text-amber-900 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
           <MapPin className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            <p className="font-semibold text-amber-950">Registro em Tempo Real Obrigatório</p>
+            <p className="font-semibold text-amber-950">Foto com GPS Obrigatória (Janela de até 12h)</p>
             <p className="text-[11px] text-amber-800">
-              A foto <strong>deve ser tirada agora no local</strong> com o <strong>GPS ativado</strong> na câmera. O sistema valida automaticamente o horário e localização para evitar fraudes ou fotos repetidas.
+              Você pode tirar na hora ou selecionar uma foto da galeria tirada no seu turno (últimas 12h). A foto <strong>deve conter o GPS ativado</strong> na câmera para atualizar a localização da repetidora.
             </p>
           </div>
         </div>

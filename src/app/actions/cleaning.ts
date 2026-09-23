@@ -103,16 +103,17 @@ export async function saveCleaning(formData: FormData) {
         }
       }
 
-      // 3. Validação em tempo real: a foto deve ter sido tirada no momento do registro (tolerância de até 45 min)
+      // 3. Validação de janela de tempo: a foto deve ter sido tirada no mesmo turno (tolerância de até 12 horas)
       const now = new Date()
       const diffMinutes = (now.getTime() - photoDate.getTime()) / (1000 * 60)
+      const MAX_AGE_MINUTES = 12 * 60 // 12 horas
 
-      if (diffMinutes > 45) {
+      if (diffMinutes > MAX_AGE_MINUTES) {
         const timeString = photoDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
         const dateString = photoDate.toLocaleDateString('pt-BR')
         return {
           success: false,
-          error: `A foto selecionada é antiga (tirada em ${dateString} às ${timeString}). Para operadores, a foto deve ser tirada no momento do registro da limpeza.`,
+          error: `A foto selecionada é antiga (tirada em ${dateString} às ${timeString}). Para operadores, a foto deve ter sido tirada nas últimas 12 horas durante o turno.`,
         }
       }
 
@@ -196,7 +197,8 @@ export async function saveCleaning(formData: FormData) {
       },
     })
 
-    if (latitude !== null && longitude !== null) {
+    // Atualiza a localização da repetidora apenas se for OPERADOR em campo (uploads de ADMIN não alteram a localização da RPT)
+    if (!isAdmin && latitude !== null && longitude !== null) {
       await updateRepeaterLocation(repeaterId, latitude, longitude)
     }
 
