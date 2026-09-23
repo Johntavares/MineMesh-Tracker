@@ -254,8 +254,8 @@ export function GeoreferenceWizard({
         repeaterId: rptRoot?.id,
         x: 75,
         y: 52,
-        lat: rptRoot?.latitude ?? -5.796381969634659,
-        lng: rptRoot?.longitude ?? -50.53397149300766,
+        lat: rptRoot?.latitude ?? -5.796080,
+        lng: rptRoot?.longitude ?? -50.521945,
       }
     ])
   }, [referenceRepeaters])
