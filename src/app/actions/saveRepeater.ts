@@ -55,17 +55,7 @@ export async function saveRepeater(data: FormData) {
       })
 
       if (existing) {
-        const codeUpper = (existing.code || '').toUpperCase()
-        const nameUpper = (existing.name || '').toUpperCase()
-        const isFixed = (codeUpper.startsWith('ROOT') || nameUpper.startsWith('ROOT')) &&
-                        !codeUpper.includes('320') && !nameUpper.includes('320')
-        if (isFixed) {
-          // Keep original fixed coordinates and code intact
-          payload.code = existing.code
-          payload.name = existing.name
-          payload.latitude = existing.latitude
-          payload.longitude = existing.longitude
-        }
+        // Block removed at user's request so any user with access can update ROOTs
       }
 
       await prisma.repeater.update({

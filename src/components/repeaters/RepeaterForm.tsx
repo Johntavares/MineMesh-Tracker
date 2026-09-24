@@ -24,7 +24,7 @@ export function RepeaterForm({ initialData, lang }: { initialData?: Repeater; la
 
   const isRoot = initialData?.code.toUpperCase().startsWith('ROOT') || initialData?.name.toUpperCase().startsWith('ROOT')
   const is320 = initialData?.code.toLowerCase().includes('320') || initialData?.name.toLowerCase().includes('320')
-  const isFixed = !!(isRoot || is320)
+  const isFixed = false // Desbloqueado a pedido do usuário
 
   return (
     <form 

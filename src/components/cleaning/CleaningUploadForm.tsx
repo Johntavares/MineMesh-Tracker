@@ -136,9 +136,9 @@ export function CleaningUploadForm({
         <div className="flex items-start gap-2 text-xs text-amber-900 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
           <MapPin className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            <p className="font-semibold text-amber-950">Foto com GPS Obrigatória (Janela de até 12h)</p>
+            <p className="font-semibold text-amber-950">Foto com GPS Obrigatória (Janela de até 72h)</p>
             <p className="text-[11px] text-amber-800">
-              Você pode tirar na hora ou selecionar uma foto da galeria tirada no seu turno (últimas 12h). A foto <strong>deve conter o GPS ativado</strong> na câmera para atualizar a localização da repetidora.
+              Você pode tirar na hora ou selecionar uma foto da galeria tirada no seu turno (últimas 72h). A foto <strong>deve conter o GPS ativado</strong> na câmera para atualizar a localização da repetidora.
             </p>
           </div>
         </div>

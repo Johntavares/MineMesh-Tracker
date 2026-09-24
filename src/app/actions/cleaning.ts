@@ -103,17 +103,17 @@ export async function saveCleaning(formData: FormData) {
         }
       }
 
-      // 3. Validação de janela de tempo: a foto deve ter sido tirada no mesmo turno (tolerância de até 12 horas)
+      // 3. Validação de janela de tempo: a foto deve ter sido tirada em até 72 horas (tolerância para offline/ontem)
       const now = new Date()
       const diffMinutes = (now.getTime() - photoDate.getTime()) / (1000 * 60)
-      const MAX_AGE_MINUTES = 12 * 60 // 12 horas
+      const MAX_AGE_MINUTES = 72 * 60 // 72 horas
 
       if (diffMinutes > MAX_AGE_MINUTES) {
         const timeString = photoDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
         const dateString = photoDate.toLocaleDateString('pt-BR')
         return {
           success: false,
-          error: `A foto selecionada é antiga (tirada em ${dateString} às ${timeString}). Para operadores, a foto deve ter sido tirada nas últimas 12 horas durante o turno.`,
+          error: `A foto selecionada é antiga (tirada em ${dateString} às ${timeString}). Para operadores, a foto deve ter sido tirada nas últimas 72 horas.`,
         }
       }
 
@@ -197,12 +197,8 @@ export async function saveCleaning(formData: FormData) {
       },
     })
 
-    const isFixed = (repeater.code.toUpperCase().startsWith('ROOT') || 
-                     repeater.name.toUpperCase().startsWith('ROOT')) &&
-                    !repeater.code.toLowerCase().includes('320')
-
-    // Atualiza a localização da repetidora se for OPERADOR em campo (liberado para 320 a pedido)
-    if (!isAdmin && !isFixed && latitude !== null && longitude !== null) {
+    // Atualiza a localização da repetidora se for OPERADOR em campo (liberado para todos a pedido)
+    if (!isAdmin && latitude !== null && longitude !== null) {
       await updateRepeaterLocation(repeaterId, latitude, longitude)
     }
 

@@ -440,8 +440,7 @@ export default function MineMap({
 
   // Validate coordinates inside boundary
   const checkCoordinatesInBoundary = (lat: number, lng: number): boolean => {
-    if (!hasBoundary) return true
-    return isPointInPolygon([lat, lng], boundary!.coordinates)
+    return true // Trava removida a pedido do usuário
   }
 
   // Handle boundary drawing click
@@ -1517,7 +1516,7 @@ export default function MineMap({
                           </div>
                         )}
 
-                        {(isAdmin || !isRoot) ? (
+                        {true ? (
                           <form className="mt-2.5 pt-2.5 border-t" onSubmit={async (e) => {
                             e.preventDefault()
                             const form = e.currentTarget
