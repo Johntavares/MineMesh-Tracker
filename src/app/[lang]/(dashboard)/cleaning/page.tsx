@@ -32,13 +32,7 @@ export default async function CleaningPage({
     },
   })
 
-  const filtered = repeaters.filter((r) => {
-    const code = r.code.toLowerCase()
-    const name = r.name.toLowerCase()
-    const isRoot = code.startsWith('root') || name.startsWith('root')
-    const is320 = code.includes('320') || name.includes('320')
-    return !isRoot && !is320
-  })
+  const filtered = repeaters // Mostrar todas as repetidoras, incluindo ROOTs, a pedido do usuário
 
   const currentWeek = getWeekStart()
   const rows = filtered.map((r) => {

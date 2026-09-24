@@ -69,7 +69,8 @@ export async function saveCleaning(formData: FormData) {
       photoUrl = `/uploads/cleaning/${filename}`
     } catch (e) {
       console.warn('[CLEANING] Failed to save file to filesystem, falling back to base64', e)
-      photoUrl = `data:${file.type};base64,${buffer.toString('base64')}`
+      const fallbackMime = file.type && file.type !== 'application/octet-stream' ? file.type : (fileExtension === 'png' ? 'image/png' : 'image/jpeg')
+      photoUrl = `data:${fallbackMime};base64,${buffer.toString('base64')}`
     }
 
     const session = await getServerSession(authOptions)
