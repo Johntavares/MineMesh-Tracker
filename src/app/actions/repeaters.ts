@@ -51,7 +51,14 @@ export async function updateRepeaterLocation(
       const nameUpper = (oldRepeater.name || '').toUpperCase()
       const is320 = codeUpper.includes('320') || nameUpper.includes('320')
 
-      // Block removed at user's request so any user with access can update ROOTs
+      // ROOT repeaters (except 320 which is allowed for field georeferencing) require Admin
+      const isRoot = (codeUpper.startsWith('ROOT') || nameUpper.startsWith('ROOT')) && !is320
+      if (isRoot && session?.user?.role !== 'ADMIN') {
+        return { 
+          success: false, 
+          error: 'Apenas Administradores podem ajustar a localização de repetidoras ROOT.' 
+        }
+      }
     }
 
     // Perform update

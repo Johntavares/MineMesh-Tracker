@@ -247,6 +247,7 @@ export default function MineMap({
   const [showOrtofoto, setShowOrtofoto] = useState(true)
   const [showGrid, setShowGrid] = useState(isAdmin)
   const [showLayerMenu, setShowLayerMenu] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
   
   // Search State
   const [searchQuery, setSearchQuery] = useState('')
@@ -1449,7 +1450,7 @@ export default function MineMap({
                   <Marker
                     position={position}
                     icon={divIcon}
-                    draggable={isAdmin && !isDrawingBoundary}
+                    draggable={isAdmin && isEditMode && !isDrawingBoundary}
                     eventHandlers={{
                       dragend: async (e) => {
                         const marker = e.target
@@ -1779,36 +1780,55 @@ export default function MineMap({
                 )}
               </div>
 
-              {/* Heatmap toggle row */}
+              {/* Edit Map & Heatmap toggle row */}
               {isAdmin && (
-                <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-100">
-                  <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500" />
-                  <span className="text-[11px] font-medium text-slate-600">Mapa de Calor</span>
+                <div className="flex flex-col border-b border-slate-100">
+                  
+                  {/* Edit Map Mode Row */}
+                  <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-100/50">
+                    <div className="flex items-center gap-1.5">
+                      <Settings2 className="w-3.5 h-3.5 text-slate-500" />
+                      <span className="text-[11px] font-medium text-slate-600">Editar Mapa (Mover)</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isEditMode}
+                        onChange={() => setIsEditMode(!isEditMode)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600" />
+                    </label>
+                  </div>
+
+                  {/* Heatmap Row */}
+                  <div className="flex items-center justify-between px-3.5 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500" />
+                      <span className="text-[11px] font-medium text-slate-600">Mapa de Calor</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {showGrid && (
+                        <button
+                          onClick={() => setShowHeatSettings(v => !v)}
+                          title="Configurar mapa de calor"
+                          className={`p-1 rounded-md transition-colors ${showHeatSettings ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-50'}`}
+                        >
+                          <Settings2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showGrid}
+                          onChange={() => { setShowGrid(!showGrid); if (showGrid) setShowHeatSettings(false) }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600" />
+                      </label>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {/* Settings gear */}
-                  {showGrid && (
-                    <button
-                      onClick={() => setShowHeatSettings(v => !v)}
-                      title="Configurar mapa de calor"
-                      className={`p-1 rounded-md transition-colors ${showHeatSettings ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-50'}`}
-                    >
-                      <Settings2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                  {/* Toggle switch */}
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showGrid}
-                      onChange={() => { setShowGrid(!showGrid); if (showGrid) setShowHeatSettings(false) }}
-                      className="sr-only peer"
-                    />
-                    <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600" />
-                  </label>
-                </div>
-              </div>
               )}
 
               {/* Expandable heatmap settings */}
