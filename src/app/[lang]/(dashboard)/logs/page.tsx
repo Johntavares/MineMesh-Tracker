@@ -46,6 +46,8 @@ export default async function LogsPage({
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <span className="inline-flex px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] sm:text-xs font-mono font-medium">
                         {
+                          log.action === 'LOGIN' ? 'Acesso ao Sistema' :
+                          log.action === 'UPDATE_STATUS' ? 'Alteração de Status' :
                           log.action === 'UPDATE_LOCATION' ? 'Atualização de Localização' :
                           log.action === 'RPT_CLEANING' ? 'Limpeza' :
                           log.action === 'CREATE_REPEATER' ? 'Cadastro' :

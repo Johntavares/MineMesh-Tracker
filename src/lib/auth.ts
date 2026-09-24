@@ -27,6 +27,22 @@ export const authOptions: NextAuthOptions = {
           if (user) {
             const isPasswordValid = await bcrypt.compare(inputPassword, user.password)
             if (isPasswordValid) {
+              try {
+                const mine = await prisma.mine.findFirst();
+                if (mine) {
+                  await prisma.auditLog.create({
+                    data: {
+                      action: 'LOGIN',
+                      details: `Acesso realizado pelo usuário ${user.name} (${user.email}).`,
+                      userId: user.id,
+                      mineId: mine.id
+                    }
+                  });
+                }
+              } catch (logError) {
+                console.error('[AUTH] Failed to write login log', logError);
+              }
+
               return {
                 id: user.id,
                 email: user.email,
