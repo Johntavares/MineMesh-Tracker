@@ -629,9 +629,9 @@ export default function MineMap({
     }
   }
 
-  // Active repeaters list (ONLINE and MAINTENANCE physical ones)
+  // Active repeaters list (all physical ones with coordinates)
   const activeRepeaters = useMemo(
-    () => localRepeaters.filter(r => r.latitude && r.longitude && (r.status === 'ONLINE' || r.status === 'MAINTENANCE')),
+    () => localRepeaters.filter(r => r.latitude && r.longitude),
     [localRepeaters]
   )
 
@@ -742,7 +742,7 @@ export default function MineMap({
 
       // Apply virtual deactivations and coverage mode filters
       let computationRepeaters = activeRepeaters.filter(
-        r => !deactIds.includes(r.id) && !r.code.toLowerCase().includes('320') && !r.name.toLowerCase().includes('320')
+        r => !deactIds.includes(r.id)
       )
       if (indMode && indId) {
         computationRepeaters = computationRepeaters.filter(r => r.id === indId)
