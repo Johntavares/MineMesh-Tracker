@@ -39,7 +39,35 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-First strategy for HTML pages (navigation)
+  // Handle RSC (React Server Components) payload requests separately for instant PWA navigation
+  const isRsc = event.request.url.includes('?_rsc=');
+  if (isRsc) {
+    const urlObj = new URL(event.request.url);
+    urlObj.searchParams.delete('_rsc');
+    const cleanUrl = urlObj.pathname; // Cache by pathname to ignore volatile _rsc hashes
+    
+    event.respondWith(
+      caches.match(cleanUrl).then((cachedResponse) => {
+        const fetchPromise = fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(cleanUrl, networkResponse.clone()));
+          }
+          return networkResponse;
+        }).catch(() => {
+          // Silent catch for background revalidation
+        });
+        
+        // Return instantly from cache if available, otherwise wait for network
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // Network-First strategy for HTML pages (full page reload navigation)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
