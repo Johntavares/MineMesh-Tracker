@@ -147,6 +147,21 @@ function MapAutoFitter({
   return null
 }
 
+function NavigationAutoFitter({ userLocation, targetLocation }: { userLocation: [number, number] | null, targetLocation: [number, number] | null }) {
+  const map = useMap()
+  const hasFitted = useRef(false)
+  
+  useEffect(() => {
+    if (!hasFitted.current && userLocation && targetLocation) {
+      const bounds = L.latLngBounds([userLocation, targetLocation])
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 })
+      hasFitted.current = true
+    }
+  }, [userLocation, targetLocation, map])
+  
+  return null
+}
+
 // Dynamic Map Refocus trigger for highlighting shadow zones
 function MapRefocuser({ center, trigger }: { center: [number, number] | null, trigger: number }) {
   const map = useMap()
@@ -1813,6 +1828,14 @@ export default function MineMap({
               </Marker>
             )}
 
+            {navigationTargetId && userLocation && (() => {
+              const target = localRepeaters.find(r => r.id === navigationTargetId)
+              if (target && target.latitude && target.longitude) {
+                return <NavigationAutoFitter userLocation={userLocation} targetLocation={[target.latitude, target.longitude]} />
+              }
+              return null
+            })()}
+
           </MapContainer>
 
           <style dangerouslySetInnerHTML={{ __html: `
@@ -1823,9 +1846,9 @@ export default function MineMap({
 
           {/* NAVIGATION FLOATING UI */}
           {navigationTargetId && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white rounded-full px-4 py-2 shadow-lg flex items-center gap-4 border border-slate-200">
+            <div className="absolute top-[72px] sm:top-6 left-1/2 -translate-x-1/2 z-[1000] bg-white rounded-full px-3 py-1.5 sm:px-4 sm:py-2 shadow-lg flex items-center gap-3 sm:gap-4 border border-slate-200 w-max max-w-[90vw]">
               {(() => {
-                if (!userLocation) return <span className="text-sm font-bold animate-pulse text-slate-500">Obtendo GPS...</span>
+                if (!userLocation) return <span className="text-xs sm:text-sm font-bold animate-pulse text-slate-500">Obtendo GPS...</span>
                 
                 const target = localRepeaters.find(r => r.id === navigationTargetId)
                 if (!target || !target.latitude || !target.longitude) return null
@@ -1833,8 +1856,8 @@ export default function MineMap({
                 const dist = Math.round(getDistanceMeters(userLocation, [target.latitude, target.longitude]))
                 return (
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-tight">Navegando para {target.code}</span>
-                    <span className="text-sm font-bold text-slate-800 leading-tight">
+                    <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-tight">Navegando para {target.code}</span>
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 leading-tight">
                       Distância: <span className="text-blue-600">{dist}m</span>
                     </span>
                   </div>
@@ -1843,10 +1866,10 @@ export default function MineMap({
               
               <button 
                 onClick={() => setNavigationTargetId(null)}
-                className="bg-rose-100 hover:bg-rose-200 text-rose-600 rounded-full w-8 h-8 flex items-center justify-center font-bold transition-colors shrink-0"
+                className="bg-rose-100 hover:bg-rose-200 text-rose-600 rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center font-bold transition-colors shrink-0"
                 title="Sair da Navegação"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3 h-3 sm:w-4 sm:h-4" />
               </button>
             </div>
           )}
@@ -1899,34 +1922,34 @@ export default function MineMap({
           </div>
 
           {/* 5. FLOATING HEATMAP CONTROL PANEL */}
-          <div className="absolute bottom-20 sm:bottom-6 sm:top-auto right-3 sm:right-4 z-[1000] select-none font-sans w-[240px] sm:w-[260px]">
-            <div className="bg-white/95 backdrop-blur border border-slate-200/80 rounded-2xl shadow-lg overflow-hidden flex flex-col">
+          <div className="absolute bottom-[90px] sm:bottom-6 sm:top-auto right-2 sm:right-4 z-[1000] select-none font-sans w-[160px] sm:w-[220px]">
+            <div className="bg-white/95 backdrop-blur border border-slate-200/80 rounded-xl shadow-md overflow-hidden flex flex-col">
 
               {/* Header row */}
-              <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <Radio className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                  <span className="text-[11px] font-semibold text-slate-700">Repetidoras</span>
-                  <span className="bg-slate-100 text-slate-800 text-[10px] px-1.5 py-0.5 rounded-md font-mono font-bold shrink-0">
+              <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100">
+                <div className="flex items-center gap-1.5">
+                  <Radio className="w-3 h-3 text-blue-500 shrink-0" />
+                  <span className="text-[10px] font-semibold text-slate-700">Repetidoras</span>
+                  <span className="bg-slate-100 text-slate-800 text-[9px] px-1 py-0.5 rounded font-mono font-bold shrink-0">
                     {activeRepeaters.length}
                   </span>
                 </div>
               </div>
 
               {/* Connection Status & Offline Sync Row */}
-              <div className="flex items-center justify-between px-3.5 py-1.5 bg-slate-50 border-b border-slate-100 text-[9px]">
+              <div className="flex items-center justify-between px-2.5 py-1 bg-slate-50 border-b border-slate-100 text-[8px]">
                 <div className="flex items-center gap-1">
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOnline ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+                  <div className={`w-1 h-1 rounded-full shrink-0 ${isOnline ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
                   <span className="font-semibold text-slate-500 truncate">
-                    {isOnline ? 'Rede: Online' : 'Rede: Offline'}
+                    {isOnline ? 'Online' : 'Offline'}
                   </span>
                 </div>
                 {pendingSyncCount > 0 && (
                   <button
                     onClick={triggerSync}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-1.5 py-0.5 rounded shadow text-[8px] flex items-center gap-0.5 transition-colors cursor-pointer shrink-0"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-1.5 py-0.5 rounded text-[7px] flex items-center gap-0.5 transition-colors cursor-pointer shrink-0"
                   >
-                    Sincronizar ({pendingSyncCount})
+                    Sync ({pendingSyncCount})
                   </button>
                 )}
               </div>
@@ -1936,10 +1959,10 @@ export default function MineMap({
                 <div className="flex flex-col border-b border-slate-100">
                   
                   {/* Edit Map Mode Row */}
-                  <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-100/50">
-                    <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                      <Settings2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                      <span className="text-[11px] font-medium text-slate-600 truncate">Editar Mapa</span>
+                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100/50">
+                    <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                      <Settings2 className="w-3 h-3 text-slate-500 shrink-0" />
+                      <span className="text-[9px] font-medium text-slate-600 truncate">Editar</span>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input
@@ -1953,10 +1976,10 @@ export default function MineMap({
                   </div>
 
                   {/* Heatmap Row */}
-                  <div className="flex items-center justify-between px-3.5 py-2">
-                    <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0 bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500" />
-                      <span className="text-[11px] font-medium text-slate-600 truncate">Mapa de Calor</span>
+                  <div className="flex items-center justify-between px-2.5 py-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                      <div className="w-2 h-2 rounded-full shrink-0 bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500" />
+                      <span className="text-[9px] font-medium text-slate-600 truncate">Calor</span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {showGrid && (
