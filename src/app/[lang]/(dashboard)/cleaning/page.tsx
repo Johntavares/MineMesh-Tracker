@@ -45,7 +45,8 @@ export default async function CleaningPage({
       status: r.status,
       currentCleaning: record
         ? {
-            photoUrl: record.photoUrl,
+            id: record.id,
+            photoUrl: record.photoUrl.startsWith('data:') ? `/api/cleaning/photo/${record.id}` : record.photoUrl,
             notes: record.notes,
             createdAt: record.createdAt.toISOString(),
             cleanedBy: record.cleanedBy?.name ?? null,
