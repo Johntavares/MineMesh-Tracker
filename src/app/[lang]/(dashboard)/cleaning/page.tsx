@@ -32,7 +32,12 @@ export default async function CleaningPage({
     },
   })
 
-  const filtered = repeaters // Mostrar todas as repetidoras, incluindo ROOTs, a pedido do usuário
+  // Hide ROOTs and 320 from the cleaning panel as per user request
+  const filtered = repeaters.filter(r => {
+    const code = r.code.toUpperCase()
+    const name = r.name.toUpperCase()
+    return !code.includes('ROOT') && !name.includes('ROOT') && !code.includes('320') && !name.includes('320')
+  })
 
   const currentWeek = getWeekStart()
   const rows = filtered.map((r) => {
