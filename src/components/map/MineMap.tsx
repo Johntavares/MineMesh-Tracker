@@ -699,19 +699,40 @@ export default function MineMap({
 
   const gridBounds = useMemo<[[number, number], [number, number]]>(() => {
     let gridMinLat = 90, gridMaxLat = -90, gridMinLng = 180, gridMaxLng = -180
-    if (hasBoundary) {
-      boundary!.coordinates.forEach(coord => {
+    
+    // Include boundary if present
+    if (hasBoundary && boundary?.coordinates) {
+      boundary.coordinates.forEach(coord => {
         if (coord[0] < gridMinLat) gridMinLat = coord[0]
         if (coord[0] > gridMaxLat) gridMaxLat = coord[0]
         if (coord[1] < gridMinLng) gridMinLng = coord[1]
         if (coord[1] > gridMaxLng) gridMaxLng = coord[1]
       })
-    } else if (ortofotoBounds) {
-      gridMinLat = Math.min(ortofotoBounds[0][0], ortofotoBounds[1][0])
-      gridMaxLat = Math.max(ortofotoBounds[0][0], ortofotoBounds[1][0])
-      gridMinLng = Math.min(ortofotoBounds[0][1], ortofotoBounds[1][1])
-      gridMaxLng = Math.max(ortofotoBounds[0][1], ortofotoBounds[1][1])
-    } else {
+    } 
+    
+    // Include ortofoto if present
+    if (ortofotoBounds) {
+      gridMinLat = Math.min(gridMinLat, ortofotoBounds[0][0], ortofotoBounds[1][0])
+      gridMaxLat = Math.max(gridMaxLat, ortofotoBounds[0][0], ortofotoBounds[1][0])
+      gridMinLng = Math.min(gridMinLng, ortofotoBounds[0][1], ortofotoBounds[1][1])
+      gridMaxLng = Math.max(gridMaxLng, ortofotoBounds[0][1], ortofotoBounds[1][1])
+    }
+
+    // Include all active repeaters so the heatmap covers them
+    activeRepeaters.forEach(r => {
+      if (r.latitude && r.longitude) {
+        // Expand the bounds slightly around the repeater to fit the heatmap radius
+        // 0.005 degrees is approx 500m
+        const pad = 0.005 
+        if (r.latitude - pad < gridMinLat) gridMinLat = r.latitude - pad
+        if (r.latitude + pad > gridMaxLat) gridMaxLat = r.latitude + pad
+        if (r.longitude - pad < gridMinLng) gridMinLng = r.longitude - pad
+        if (r.longitude + pad > gridMaxLng) gridMaxLng = r.longitude + pad
+      }
+    })
+
+    // Fallback if still unset
+    if (gridMinLat === 90) {
       const cLat = mapConfig?.centerLat || -5.78957
       const cLng = mapConfig?.centerLng || -50.53500
       gridMinLat = cLat - 0.015
@@ -719,11 +740,12 @@ export default function MineMap({
       gridMinLng = cLng - 0.015
       gridMaxLng = cLng + 0.015
     }
+    
     return [
       [gridMinLat, gridMinLng],
       [gridMaxLat, gridMaxLng]
     ]
-  }, [boundary?.coordinates, hasBoundary, ortofotoBounds, mapConfig?.centerLat, mapConfig?.centerLng])
+  }, [boundary?.coordinates, hasBoundary, ortofotoBounds, mapConfig?.centerLat, mapConfig?.centerLng, activeRepeaters])
 
   const { baselineCells, currentGridCells } = useMemo(() => {
     const calc = (
