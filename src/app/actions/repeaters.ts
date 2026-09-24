@@ -140,3 +140,76 @@ export async function updateRepeaterStatus(id: string, status: string) {
     return { success: false, error: 'Erro ao atualizar o status da repetidora.' }
   }
 }
+
+export async function undoRepeaterLocationUpdate(id: string) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (session?.user?.role !== 'ADMIN') {
+      return { success: false, error: 'Apenas Administradores podem desfazer atualizações de localização.' }
+    }
+
+    const repeater = await prisma.repeater.findUnique({ where: { id } })
+    if (!repeater) {
+      return { success: false, error: 'Repetidora não encontrada.' }
+    }
+
+    // Find the latest location update log for this repeater
+    const latestLog = await prisma.auditLog.findFirst({
+      where: {
+        action: 'UPDATE_LOCATION',
+        details: {
+          contains: `repetidora ${repeater.code}`
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (!latestLog || !latestLog.oldValues) {
+      return { success: false, error: 'Nenhum histórico de localização encontrado para desfazer.' }
+    }
+
+    const oldValues = latestLog.oldValues as any
+    if (oldValues.latitude === undefined || oldValues.longitude === undefined) {
+      return { success: false, error: 'Dados de localização anterior inválidos ou ausentes.' }
+    }
+
+    // Apply the old values
+    await prisma.repeater.update({
+      where: { id },
+      data: {
+        latitude: oldValues.latitude,
+        longitude: oldValues.longitude,
+        locationDescription: oldValues.locationDescription,
+        updatedById: session.user.id,
+        version: { increment: 1 }
+      }
+    })
+
+    // Log the undo action
+    await prisma.auditLog.create({
+      data: {
+        action: 'UNDO_LOCATION_UPDATE',
+        details: `Atualização de localização desfeita para a repetidora ${repeater.code} por ${session.user.name}.`,
+        oldValues: {
+          latitude: repeater.latitude,
+          longitude: repeater.longitude,
+          locationDescription: repeater.locationDescription
+        } as any,
+        newValues: {
+          latitude: oldValues.latitude,
+          longitude: oldValues.longitude,
+          locationDescription: oldValues.locationDescription
+        } as any,
+        userId: session.user.id,
+        mineId: repeater.mineId
+      }
+    })
+
+    revalidatePath('/[lang]/map', 'page')
+
+    return { success: true }
+  } catch (error) {
+    console.error(error)
+    return { success: false, error: 'Erro ao desfazer atualização de localização.' }
+  }
+}

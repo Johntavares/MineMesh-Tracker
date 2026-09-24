@@ -5,8 +5,9 @@ import { MapContainer, TileLayer, ImageOverlay, Marker, Popup, Circle, Tooltip, 
 import { useRouter } from 'next/navigation'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import MarkerClusterGroup from 'react-leaflet-cluster'
 import { useTranslation } from '@/lib/i18n/client'
-import { updateRepeaterLocation, updateRepeaterStatus } from '@/app/actions/repeaters'
+import { updateRepeaterLocation, updateRepeaterStatus, undoRepeaterLocationUpdate } from '@/app/actions/repeaters'
 import { saveMineBoundary } from '@/app/actions/boundary'
 import { saveHeatmapConfig } from '@/app/actions/mine'
 import { 
@@ -1422,8 +1423,14 @@ export default function MineMap({
 
 
             {/* PHYSICAL REPEATERS MARKERS */}
-            {showRepeaters && localRepeaters.map(repeater => {
-              if (navigationTargetId && repeater.id !== navigationTargetId) return null
+            {showRepeaters && (
+              <MarkerClusterGroup
+                chunkedLoading
+                maxClusterRadius={40}
+                spiderfyOnMaxZoom={true}
+              >
+                {localRepeaters.map(repeater => {
+                  if (navigationTargetId && repeater.id !== navigationTargetId) return null
               if (repeater.status === 'MAINTENANCE') return null
               if (!repeater.latitude || !repeater.longitude) return null
 
@@ -1601,6 +1608,26 @@ export default function MineMap({
                             >
                               Colocar em Manutenção
                             </button>
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.preventDefault()
+                                if (confirm('Tem certeza que deseja desfazer a última atualização de localização desta repetidora?')) {
+                                  const res = await undoRepeaterLocationUpdate(repeater.id)
+                                  if (res.success) {
+                                    alert('Atualização de localização desfeita com sucesso.')
+                                    rollbackLocalPosition(repeater.id)
+                                    router.refresh()
+                                  } else {
+                                    alert(res.error || 'Erro ao desfazer atualização.')
+                                  }
+                                }
+                              }}
+                              className="px-2 py-1 text-[10px] font-bold text-white bg-slate-600 hover:bg-slate-700 rounded transition-colors text-center w-full flex items-center justify-center gap-1"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Desfazer Última Localização
+                            </button>
                           </div>
                         )}
 
@@ -1709,6 +1736,8 @@ export default function MineMap({
                 </div>
               )
             })}
+            </MarkerClusterGroup>
+            )}
 
             {/* SIMULATED VIRTUAL REPEATER MARKER */}
             {showRepeaters && simulatedRepeater && (
