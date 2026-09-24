@@ -34,7 +34,8 @@ import {
   Eye, 
   EyeOff,
   Settings2,
-  Save
+  Save,
+  Search
 } from 'lucide-react'
 
 // Fix Leaflet's default icon path issues in Next.js
@@ -246,6 +247,10 @@ export default function MineMap({
   const [showOrtofoto, setShowOrtofoto] = useState(true)
   const [showGrid, setShowGrid] = useState(isAdmin)
   const [showLayerMenu, setShowLayerMenu] = useState(false)
+  
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
 
   // Live heatmap configuration (editable directly on the map)
   const [liveHeatRadius, setLiveHeatRadius] = useState(heatConfig?.radius ?? 60)
@@ -1693,6 +1698,53 @@ export default function MineMap({
               background-color: transparent !important;
             }
           ` }} />
+
+          {/* SEARCH PANEL */}
+          <div className="absolute top-4 left-16 z-[1000] font-sans" style={{ width: '280px' }}>
+            <div className="bg-white/95 backdrop-blur border border-slate-200/80 rounded-xl shadow-lg overflow-hidden flex flex-col">
+              <div className="px-3 py-2 flex items-center border-b border-slate-100">
+                <Search className="w-4 h-4 text-slate-400 mr-2" />
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar Repetidora..."
+                  className="w-full bg-transparent text-sm focus:outline-none text-slate-700"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                />
+              </div>
+              {isSearchFocused && searchQuery && (
+                <div className="max-h-48 overflow-y-auto bg-white flex flex-col">
+                  {localRepeaters
+                    .filter(r => r.code?.toLowerCase().includes(searchQuery.toLowerCase()) || r.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .slice(0, 10)
+                    .map(r => (
+                      <button 
+                        key={r.id}
+                        type="button"
+                        className="text-left px-3 py-2 text-xs text-slate-700 hover:bg-blue-50 border-b border-slate-50 last:border-0"
+                        onClick={() => {
+                          if (r.latitude && r.longitude) {
+                            setRefocusCenter([r.latitude, r.longitude])
+                            setRefocusTrigger(prev => prev + 1)
+                            setSearchQuery('')
+                          } else {
+                            alert('Esta repetidora ainda não possui coordenadas no mapa.')
+                          }
+                        }}
+                      >
+                        <span className="font-bold">{r.code}</span> - {r.name}
+                      </button>
+                    ))
+                  }
+                  {localRepeaters.filter(r => r.code?.toLowerCase().includes(searchQuery.toLowerCase()) || r.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                    <div className="px-3 py-2 text-xs text-slate-500">Nenhuma repetidora encontrada.</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* 5. FLOATING HEATMAP CONTROL PANEL */}
           <div className="absolute top-3 right-3 z-[1000] select-none font-sans" style={{ width: '220px' }}>
