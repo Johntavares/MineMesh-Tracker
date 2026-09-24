@@ -44,8 +44,16 @@ export default async function LogsPage({
                       {log.user?.name || dict.auth.system}
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                      <span className="inline-flex px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] sm:text-xs font-mono">
-                        {log.action}
+                      <span className="inline-flex px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] sm:text-xs font-mono font-medium">
+                        {
+                          log.action === 'UPDATE_LOCATION' ? 'Atualização de Localização' :
+                          log.action === 'RPT_CLEANING' ? 'Limpeza' :
+                          log.action === 'CREATE_REPEATER' ? 'Cadastro' :
+                          log.action === 'UPDATE_REPEATER' ? 'Edição' :
+                          log.action === 'DELETE_REPEATER' ? 'Exclusão' :
+                          log.action === 'MAINTENANCE' ? 'Manutenção' :
+                          log.action
+                        }
                       </span>
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 hidden sm:table-cell">{log.details || '-'}</td>

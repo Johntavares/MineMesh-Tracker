@@ -71,7 +71,12 @@ export default async function RepeatersPage({
                         repeater.status === 'OFFLINE' ? 'bg-red-100 text-red-800' :
                         'bg-amber-100 text-amber-800'
                       }`}>
-                        {repeater.status}
+                        {
+                          repeater.status === 'ONLINE' ? 'Online' :
+                          repeater.status === 'OFFLINE' ? 'Offline' :
+                          repeater.status === 'MAINTENANCE' ? 'Em Manutenção' :
+                          repeater.status
+                        }
                       </span>
                     </td>
                     <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 text-sm hidden sm:table-cell whitespace-nowrap">{repeater.model}</td>
