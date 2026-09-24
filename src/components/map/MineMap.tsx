@@ -629,9 +629,15 @@ export default function MineMap({
     }
   }
 
-  // Active repeaters list (all physical ones with coordinates)
+  // Maintenance repeaters list
+  const maintenanceRepeaters = useMemo(
+    () => localRepeaters.filter(r => r.status === 'MAINTENANCE'),
+    [localRepeaters]
+  )
+
+  // Active repeaters list (all physical ones with coordinates, excluding those in maintenance)
   const activeRepeaters = useMemo(
-    () => localRepeaters.filter(r => r.latitude && r.longitude),
+    () => localRepeaters.filter(r => r.latitude && r.longitude && r.status !== 'MAINTENANCE'),
     [localRepeaters]
   )
 
@@ -1256,9 +1262,9 @@ export default function MineMap({
   // HTML RENDER
   // ----------------------------------------------------
   return (
-    <div className="relative w-full h-screen">
+    <div className="relative w-full h-screen flex flex-col">
       {/* MAP PANEL */}
-      <div className="w-full h-full overflow-hidden z-0">
+      <div className="w-full flex-1 relative overflow-hidden z-0">
           
           <MapContainer
             center={center}
@@ -1367,6 +1373,7 @@ export default function MineMap({
 
             {/* PHYSICAL REPEATERS MARKERS */}
             {showRepeaters && localRepeaters.map(repeater => {
+              if (repeater.status === 'MAINTENANCE') return null
               if (!repeater.latitude || !repeater.longitude) return null
 
               const position: L.LatLngTuple = [repeater.latitude!, repeater.longitude!]
@@ -1963,6 +1970,29 @@ export default function MineMap({
           )}
 
         </div>
+
+        {/* BOTTOM PANEL FOR MAINTENANCE REPEATERS */}
+        {maintenanceRepeaters.length > 0 && (
+          <div className="h-48 border-t border-slate-200 bg-white p-4 overflow-y-auto shrink-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+            <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+              <span className="text-amber-500">🔧</span> Equipamentos em Manutenção ({maintenanceRepeaters.length})
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              {maintenanceRepeaters.map(r => (
+                <div key={r.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex flex-col text-xs hover:border-blue-300 transition-colors">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="font-bold text-slate-700 line-clamp-1">{r.name}</span>
+                    <span className="font-mono text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded text-[10px] shrink-0">{r.code}</span>
+                  </div>
+                  <div className="text-slate-500 mb-2 text-[11px] truncate">Mod: {r.model}</div>
+                  <div className="text-slate-400 text-[10px] mt-auto">
+                    Atu: {new Date(r.updatedAt).toLocaleDateString('pt-BR')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
   )
