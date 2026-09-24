@@ -47,25 +47,25 @@ export default async function RepeatersPage({
 
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto pb-16">
+            <table className="w-full text-left border-collapse min-w-full">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-xs uppercase tracking-wider">
-                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium">{dict.repeaters.name}</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium">{dict.repeaters.code}</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium">{dict.repeaters.status}</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium hidden sm:table-cell">{dict.repeaters.model}</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium hidden md:table-cell">{dict.repeaters.range}</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium hidden md:table-cell">Último Operador</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-right">{dict.repeaters.actions}</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium whitespace-nowrap">{dict.repeaters.name}</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium whitespace-nowrap">{dict.repeaters.code}</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium whitespace-nowrap">{dict.repeaters.status}</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium hidden sm:table-cell whitespace-nowrap">{dict.repeaters.model}</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium hidden md:table-cell whitespace-nowrap">{dict.repeaters.range}</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium hidden md:table-cell whitespace-nowrap">Último Operador</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-right whitespace-nowrap">{dict.repeaters.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {repeaters.map((repeater) => (
                   <tr key={repeater.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-slate-800 text-sm">{repeater.name}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 font-mono text-xs">{repeater.code}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-slate-800 text-sm whitespace-nowrap">{repeater.name}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 font-mono text-xs whitespace-nowrap">{repeater.code}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                         repeater.status === 'ONLINE' ? 'bg-emerald-100 text-emerald-800' :
                         repeater.status === 'OFFLINE' ? 'bg-red-100 text-red-800' :
@@ -74,10 +74,10 @@ export default async function RepeatersPage({
                         {repeater.status}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 text-sm hidden sm:table-cell">{repeater.model}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 text-sm hidden md:table-cell">{repeater.range}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 font-medium text-sm hidden md:table-cell">{repeater.updatedBy?.name || 'Sistema'}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-right space-x-1">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 text-sm hidden sm:table-cell whitespace-nowrap">{repeater.model}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 text-sm hidden md:table-cell whitespace-nowrap">{repeater.range}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 font-medium text-sm hidden md:table-cell whitespace-nowrap">{repeater.updatedBy?.name || 'Sistema'}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-right space-x-1 whitespace-nowrap">
                       <Link 
                         href={`/${lang}/repeaters/${repeater.id}/edit`}
                         className="inline-flex p-2 text-slate-400 hover:text-blue-600 transition-colors"
@@ -98,7 +98,7 @@ export default async function RepeatersPage({
                 ))}
                 {repeaters.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                       {dict.repeaters.noRepeaters}
                     </td>
                   </tr>

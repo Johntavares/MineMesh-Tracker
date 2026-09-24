@@ -25,13 +25,13 @@ export default async function LogsPage({
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-full">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-xs sm:text-sm uppercase tracking-wider">
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium">{dict.logs.dateTime}</th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium">{dict.logs.user}</th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium">{dict.logs.action}</th>
-                  <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium hidden sm:table-cell">{dict.logs.details}</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium whitespace-nowrap">{dict.logs.dateTime}</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium whitespace-nowrap">{dict.logs.user}</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium whitespace-nowrap">{dict.logs.action}</th>
+                  <th className="px-3 sm:px-6 py-3 sm:py-4 font-medium hidden sm:table-cell whitespace-nowrap">{dict.logs.details}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -40,10 +40,10 @@ export default async function LogsPage({
                     <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 whitespace-nowrap">
                       {log.createdAt.toLocaleString(lang === 'en' ? 'en-US' : 'pt-BR')}
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-slate-800">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-slate-800 whitespace-nowrap">
                       {log.user?.name || dict.auth.system}
                     </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <span className="inline-flex px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] sm:text-xs font-mono">
                         {log.action}
                       </span>
