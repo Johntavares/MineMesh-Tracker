@@ -684,7 +684,7 @@ export default function MineMap({
   }, [physicalRepeatersKey])
 
   const debouncedActiveRepeaters = debouncedGridRepeaters.filter(
-    r => r.latitude && r.longitude && (r.status === 'ONLINE' || r.status === 'MAINTENANCE')
+    r => r.latitude && r.longitude
   )
 
   const debouncedRepeatersKey = JSON.stringify(
