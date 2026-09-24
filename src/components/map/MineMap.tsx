@@ -35,7 +35,8 @@ import {
   EyeOff,
   Settings2,
   Save,
-  Search
+  Search,
+  Navigation
 } from 'lucide-react'
 
 // Fix Leaflet's default icon path issues in Next.js
@@ -376,6 +377,10 @@ export default function MineMap({
   const [deactivatedRepeaterIds, setDeactivatedRepeaterIds] = useState<string[]>([])
   const [activeSidebarTab, setActiveSidebarTab] = useState<'shadow_zones' | 'radio_criticality'>('shadow_zones')
 
+  // Navigation State
+  const [navigationTargetId, setNavigationTargetId] = useState<string | null>(null)
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+
   useEffect(() => {
     setMounted(true)
     setIsOnline(navigator.onLine)
@@ -405,6 +410,36 @@ export default function MineMap({
       triggerSync()
     }
   }, [isOnline, pendingSyncCount])
+
+  // Navigation Effect
+  useEffect(() => {
+    let watchId: number | null = null
+
+    if (navigationTargetId) {
+      if ('geolocation' in navigator) {
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            setUserLocation([pos.coords.latitude, pos.coords.longitude])
+          },
+          (err) => {
+            console.warn('Navigation geolocation error:', err)
+          },
+          { enableHighAccuracy: true, maximumAge: 0 }
+        )
+      } else {
+        alert('Geolocalização não suportada no seu dispositivo.')
+        setNavigationTargetId(null)
+      }
+    } else {
+      setUserLocation(null)
+    }
+    
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId)
+      }
+    }
+  }, [navigationTargetId])
 
   // Merge repeaters with optimistic local positions and offline queue
   const localRepeaters = useMemo(() => {
@@ -1373,6 +1408,7 @@ export default function MineMap({
 
             {/* PHYSICAL REPEATERS MARKERS */}
             {showRepeaters && localRepeaters.map(repeater => {
+              if (navigationTargetId && repeater.id !== navigationTargetId) return null
               if (repeater.status === 'MAINTENANCE') return null
               if (!repeater.latitude || !repeater.longitude) return null
 
@@ -1553,6 +1589,18 @@ export default function MineMap({
                           </div>
                         )}
 
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNavigationTargetId(repeater.id)
+                            document.body.click() // To close the popup
+                          }}
+                          className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded transition-colors"
+                        >
+                          <Navigation className="w-3.5 h-3.5" />
+                          Navegar até a Repetidora
+                        </button>
+
                         {true ? (
                           <form className="mt-2.5 pt-2.5 border-t" onSubmit={async (e) => {
                             e.preventDefault()
@@ -1723,6 +1771,48 @@ export default function MineMap({
               )
             })()}
 
+            {/* USER NAVIGATION MARKER */}
+            {navigationTargetId && userLocation && (
+              <Marker
+                position={userLocation}
+                icon={L.divIcon({
+                  html: `
+                    <div style="position: relative; width: 20px; height: 20px;">
+                      <div style="
+                        width: 20px;
+                        height: 20px;
+                        background: #3B82F6;
+                        border: 3px solid white;
+                        border-radius: 50%;
+                        box-shadow: 0 0 10px rgba(59,130,246,0.8);
+                        z-index: 1000;
+                        position: relative;
+                      "></div>
+                      <div style="
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        width: 40px;
+                        height: 40px;
+                        background: rgba(59,130,246,0.3);
+                        border-radius: 50%;
+                        transform: translate(-50%, -50%);
+                        animation: pulse 2s infinite;
+                        z-index: 999;
+                      "></div>
+                    </div>
+                  `,
+                  className: '',
+                  iconSize: [20, 20],
+                  iconAnchor: [10, 10],
+                })}
+              >
+                <Tooltip permanent direction="top" offset={[0, -10]}>
+                  Sua Localização
+                </Tooltip>
+              </Marker>
+            )}
+
           </MapContainer>
 
           <style dangerouslySetInnerHTML={{ __html: `
@@ -1730,6 +1820,36 @@ export default function MineMap({
               background-color: transparent !important;
             }
           ` }} />
+
+          {/* NAVIGATION FLOATING UI */}
+          {navigationTargetId && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white rounded-full px-4 py-2 shadow-lg flex items-center gap-4 border border-slate-200">
+              {(() => {
+                if (!userLocation) return <span className="text-sm font-bold animate-pulse text-slate-500">Obtendo GPS...</span>
+                
+                const target = localRepeaters.find(r => r.id === navigationTargetId)
+                if (!target || !target.latitude || !target.longitude) return null
+                
+                const dist = Math.round(getDistanceMeters(userLocation, [target.latitude, target.longitude]))
+                return (
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-tight">Navegando para {target.code}</span>
+                    <span className="text-sm font-bold text-slate-800 leading-tight">
+                      Distância: <span className="text-blue-600">{dist}m</span>
+                    </span>
+                  </div>
+                )
+              })()}
+              
+              <button 
+                onClick={() => setNavigationTargetId(null)}
+                className="bg-rose-100 hover:bg-rose-200 text-rose-600 rounded-full w-8 h-8 flex items-center justify-center font-bold transition-colors shrink-0"
+                title="Sair da Navegação"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* SEARCH PANEL */}
           <div className="absolute top-3 left-14 sm:left-16 z-[1000] font-sans w-[calc(100vw-4.5rem)] sm:w-[280px]">
