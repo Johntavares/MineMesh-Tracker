@@ -5,7 +5,6 @@ import { MapContainer, TileLayer, ImageOverlay, Marker, Popup, Circle, Tooltip, 
 import { useRouter } from 'next/navigation'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import MarkerClusterGroup from 'react-leaflet-cluster'
 import { useTranslation } from '@/lib/i18n/client'
 import { updateRepeaterLocation, updateRepeaterStatus, undoRepeaterLocationUpdate } from '@/app/actions/repeaters'
 import { saveMineBoundary } from '@/app/actions/boundary'
@@ -1423,13 +1422,7 @@ export default function MineMap({
 
 
             {/* PHYSICAL REPEATERS MARKERS */}
-            {showRepeaters && (
-              <MarkerClusterGroup
-                chunkedLoading
-                maxClusterRadius={40}
-                spiderfyOnMaxZoom={true}
-              >
-                {localRepeaters.map(repeater => {
+            {showRepeaters && localRepeaters.map(repeater => {
                   if (navigationTargetId && repeater.id !== navigationTargetId) return null
               if (repeater.status === 'MAINTENANCE') return null
               if (!repeater.latitude || !repeater.longitude) return null
@@ -1736,8 +1729,6 @@ export default function MineMap({
                 </div>
               )
             })}
-            </MarkerClusterGroup>
-            )}
 
             {/* SIMULATED VIRTUAL REPEATER MARKER */}
             {showRepeaters && simulatedRepeater && (
