@@ -15,7 +15,7 @@ import { updateRepeaterLocation } from './repeaters'
 import exifr from 'exifr'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic']
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
 export async function saveCleaning(formData: FormData) {
   try {
@@ -35,7 +35,13 @@ export async function saveCleaning(formData: FormData) {
       return { success: false, error: 'A foto deve ter no máximo 10MB.' }
     }
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const fileExtension = file.name.split('.').pop()?.toLowerCase()
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
+    const isAllowedType = ALLOWED_TYPES.includes(file.type) || 
+                          (file.type === 'application/octet-stream' && allowedExtensions.includes(fileExtension || '')) ||
+                          (!file.type && allowedExtensions.includes(fileExtension || ''))
+
+    if (!isAllowedType) {
       return { success: false, error: 'Formato de imagem não suportado. Use JPG, PNG, WEBP ou HEIC.' }
     }
 
@@ -51,13 +57,20 @@ export async function saveCleaning(formData: FormData) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'cleaning')
-    await mkdir(uploadDir, { recursive: true })
+    let photoUrl = ''
 
-    const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`
-    const filePath = join(uploadDir, filename)
-    await writeFile(filePath, buffer)
-    const photoUrl = `/uploads/cleaning/${filename}`
+    try {
+      const uploadDir = join(process.cwd(), 'public', 'uploads', 'cleaning')
+      await mkdir(uploadDir, { recursive: true })
+
+      const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`
+      const filePath = join(uploadDir, filename)
+      await writeFile(filePath, buffer)
+      photoUrl = `/uploads/cleaning/${filename}`
+    } catch (e) {
+      console.warn('[CLEANING] Failed to save file to filesystem, falling back to base64', e)
+      photoUrl = `data:${file.type};base64,${buffer.toString('base64')}`
+    }
 
     const session = await getServerSession(authOptions)
     const isAdmin = session?.user?.role === 'ADMIN'
