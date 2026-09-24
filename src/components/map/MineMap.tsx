@@ -770,7 +770,7 @@ export default function MineMap({
           const cellLat = gridMinLat + (i + 0.5) * latStep
           const cellLng = gridMinLng + (j + 0.5) * lngStep
           
-          const inside = hasBoundary ? isPointInPolygon([cellLat, cellLng], boundary!.coordinates) : true
+          const inside = true // Removed boundary check at user request
           if (!inside) continue
 
           let maxSignal = 0.0
@@ -1196,20 +1196,7 @@ export default function MineMap({
 
     const [[gridMinLat, gridMinLng], [gridMaxLat, gridMaxLng]] = gridBounds
 
-    // 1. Clip canvas to boundary if configured
-    if (hasBoundary && boundary?.coordinates) {
-      ctx.beginPath()
-      boundary.coordinates.forEach((coord, index) => {
-        const pctX = (coord[1] - gridMinLng) / (gridMaxLng - gridMinLng)
-        const pctY = 1 - (coord[0] - gridMinLat) / (gridMaxLat - gridMinLat)
-        const cx = pctX * width
-        const cy = pctY * height
-        if (index === 0) ctx.moveTo(cx, cy)
-        else ctx.lineTo(cx, cy)
-      })
-      ctx.closePath()
-      ctx.clip()
-    }
+    // 1. Clip canvas to boundary if configured (REMOVED AT USER REQUEST)
 
     // 2. Draw grid cells on canvas
     currentGridCells.forEach(cell => {
