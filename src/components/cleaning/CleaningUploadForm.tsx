@@ -94,7 +94,7 @@ export function CleaningUploadForm({
         ref={fileRef}
         type="file"
         name="photo"
-        accept="image/jpeg,image/png,image/webp,image/heic"
+        accept="image/*"
         className="hidden"
         onChange={handleFileChange}
       />
