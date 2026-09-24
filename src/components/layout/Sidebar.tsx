@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Map, Radio, History, Settings, LogOut, Users, Sparkles } from 'lucide-react'
+import { Home, Map, Radio, History, Settings, LogOut, Users, RefreshCw, Sparkles } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { useTranslation } from '@/lib/i18n/client'
 
@@ -68,7 +68,7 @@ export function Sidebar({ lang }: SidebarProps) {
             onClick={() => window.location.reload()}
             className="flex w-full items-center px-3 py-2 mb-2 text-sm font-medium text-slate-300 rounded-md hover:bg-slate-800 hover:text-white transition-colors"
           >
-            <Sparkles className="mr-3 h-5 w-5" />
+            <RefreshCw className="mr-3 h-5 w-5" />
             Atualizar Dados
           </button>
           <button
@@ -109,7 +109,7 @@ export function Sidebar({ lang }: SidebarProps) {
             onClick={() => window.location.reload()}
             className="flex flex-col items-center justify-center gap-0.5 min-h-[52px] min-w-[56px] px-2 py-1 rounded-lg transition-colors relative text-slate-400 hover:text-slate-200"
           >
-            <Sparkles className="h-5 w-5" />
+            <RefreshCw className="h-5 w-5" />
             <span className="text-[10px] font-medium leading-tight">Atualizar</span>
           </button>
         </nav>
