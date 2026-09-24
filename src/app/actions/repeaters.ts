@@ -108,3 +108,35 @@ export async function updateRepeaterLocation(
     return { success: false, error: dict.errors.updateRepeaterLocation }
   }
 }
+
+export async function updateRepeaterStatus(id: string, status: string) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    const updated = await prisma.repeater.update({
+      where: { id },
+      data: {
+        status,
+        updatedById: session?.user?.id || null,
+        version: { increment: 1 }
+      }
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'UPDATE_STATUS',
+        details: `Status da repetidora ${updated.code} alterado para ${status} por ${session?.user?.name || 'Sistema'}.`,
+        newValues: { status } as any,
+        userId: session?.user?.id || null,
+        mineId: updated.mineId
+      }
+    })
+
+    revalidatePath('/', 'layout')
+
+    return { success: true }
+  } catch (error) {
+    console.error(error)
+    return { success: false, error: 'Erro ao atualizar o status da repetidora.' }
+  }
+}

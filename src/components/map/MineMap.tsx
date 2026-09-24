@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useTranslation } from '@/lib/i18n/client'
-import { updateRepeaterLocation } from '@/app/actions/repeaters'
+import { updateRepeaterLocation, updateRepeaterStatus } from '@/app/actions/repeaters'
 import { saveMineBoundary } from '@/app/actions/boundary'
 import { saveHeatmapConfig } from '@/app/actions/mine'
 import { 
@@ -1499,41 +1499,56 @@ export default function MineMap({
 
                         {/* Interactive simulation controls in popup */}
                         {isAdmin && (
-                          <div className="mt-2.5 pt-2.5 border-t grid grid-cols-2 gap-1.5">
+                          <div className="mt-2.5 pt-2.5 border-t flex flex-col gap-1.5">
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  if (isDeactivated) {
+                                    setDeactivatedRepeaterIds(prev => prev.filter(id => id !== repeater.id))
+                                  } else {
+                                    setDeactivatedRepeaterIds(prev => [...prev, repeater.id])
+                                  }
+                                }}
+                                className={`px-2 py-1 text-[10px] font-bold text-white rounded transition-colors text-center ${
+                                  isDeactivated ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+                                }`}
+                              >
+                                {isDeactivated ? 'Reativar' : 'Simular Falha'}
+                              </button>
+                              
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  if (showIndividualCoverage && selectedRepeaterId === repeater.id) {
+                                    setShowIndividualCoverage(false)
+                                    setSelectedRepeaterId(null)
+                                  } else {
+                                    setShowIndividualCoverage(true)
+                                    setSelectedRepeaterId(repeater.id)
+                                  }
+                                }}
+                                className={`px-2 py-1 text-[10px] font-bold text-white rounded transition-colors text-center ${
+                                  showIndividualCoverage && selectedRepeaterId === repeater.id ? 'bg-slate-600 hover:bg-slate-700' : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
+                              >
+                                {showIndividualCoverage && selectedRepeaterId === repeater.id ? 'Ver Rede' : 'Ver Alcance'}
+                              </button>
+                            </div>
                             <button
                               type="button"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.preventDefault()
-                                if (isDeactivated) {
-                                  setDeactivatedRepeaterIds(prev => prev.filter(id => id !== repeater.id))
-                                } else {
-                                  setDeactivatedRepeaterIds(prev => [...prev, repeater.id])
+                                if (confirm('Tem certeza que deseja colocar esta repetidora em manutenção? Ela será removida do mapa.')) {
+                                  await updateRepeaterStatus(repeater.id, 'MAINTENANCE')
+                                  router.refresh()
                                 }
                               }}
-                              className={`px-2 py-1 text-[10px] font-bold text-white rounded transition-colors text-center ${
-                                isDeactivated ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
-                              }`}
+                              className="px-2 py-1 text-[10px] font-bold text-white bg-amber-500 hover:bg-amber-600 rounded transition-colors text-center w-full"
                             >
-                              {isDeactivated ? 'Reativar' : 'Simular Falha'}
-                            </button>
-                            
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                if (showIndividualCoverage && selectedRepeaterId === repeater.id) {
-                                  setShowIndividualCoverage(false)
-                                  setSelectedRepeaterId(null)
-                                } else {
-                                  setShowIndividualCoverage(true)
-                                  setSelectedRepeaterId(repeater.id)
-                                }
-                              }}
-                              className={`px-2 py-1 text-[10px] font-bold text-white rounded transition-colors text-center ${
-                                showIndividualCoverage && selectedRepeaterId === repeater.id ? 'bg-slate-600 hover:bg-slate-700' : 'bg-blue-600 hover:bg-blue-700'
-                              }`}
-                            >
-                              {showIndividualCoverage && selectedRepeaterId === repeater.id ? 'Ver Rede' : 'Ver Alcance'}
+                              Colocar em Manutenção
                             </button>
                           </div>
                         )}
@@ -1988,6 +2003,20 @@ export default function MineMap({
                   <div className="text-slate-400 text-[10px] mt-auto">
                     Atu: {new Date(r.updatedAt).toLocaleDateString('pt-BR')}
                   </div>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm('Deseja retornar esta repetidora para online? Ela voltará para o mapa.')) {
+                          await updateRepeaterStatus(r.id, 'ONLINE')
+                          router.refresh()
+                        }
+                      }}
+                      className="mt-2 w-full py-1 text-[10px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded transition-colors"
+                    >
+                      Retornar para o Mapa
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
