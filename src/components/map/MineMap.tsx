@@ -1757,8 +1757,8 @@ export default function MineMap({
           </div>
 
           {/* 5. FLOATING HEATMAP CONTROL PANEL */}
-          <div className="absolute top-16 sm:top-3 right-3 z-[1000] select-none font-sans w-[calc(100vw-1.5rem)] sm:w-[260px] max-w-none sm:max-w-[260px]">
-            <div className="bg-white/95 backdrop-blur border border-slate-200/80 rounded-2xl shadow-lg overflow-hidden">
+          <div className="absolute bottom-20 sm:bottom-6 sm:top-auto right-3 sm:right-4 z-[1000] select-none font-sans w-[240px] sm:w-[260px]">
+            <div className="bg-white/95 backdrop-blur border border-slate-200/80 rounded-2xl shadow-lg overflow-hidden flex flex-col">
 
               {/* Header row */}
               <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-slate-100">
