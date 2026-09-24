@@ -45,6 +45,7 @@ export function Sidebar({ lang }: SidebarProps) {
               <Link
                 key={item.name}
                 href={item.href}
+                prefetch={true}
                 className={`flex items-center px-3 py-3 text-sm font-medium rounded-md transition-colors ${
                   isActive
                     ? 'bg-blue-600 text-white'
@@ -93,6 +94,7 @@ export function Sidebar({ lang }: SidebarProps) {
               <Link
                 key={item.name}
                 href={item.href}
+                prefetch={true}
                 className={`flex flex-col items-center justify-center gap-0.5 min-h-[52px] min-w-[56px] px-2 py-1 rounded-lg transition-colors relative ${
                   isActive ? 'text-blue-400' : 'text-slate-400 hover:text-slate-200'
                 }`}
