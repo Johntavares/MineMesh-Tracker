@@ -1262,27 +1262,28 @@ export default function MineMap({
   }
 
   const heatmapDataUrl = useMemo(() => {
-    if (typeof window === 'undefined' || currentGridCells.length === 0) return null
+    if (typeof window === 'undefined') return null
 
-    const resolution = mapConfig?.gridResolution || 80
-    const cellSize = 8 // scale canvas up for smoother interpolation
-    const width = resolution * cellSize
-    const height = resolution * cellSize
+    const W = 1200
+    const H = 1200
 
     const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
+    canvas.width = W
+    canvas.height = H
     const ctx = canvas.getContext('2d')
     if (!ctx) return null
 
     const [[gridMinLat, gridMinLng], [gridMaxLat, gridMaxLng]] = gridBounds
+    const latSpan = gridMaxLat - gridMinLat
+    const lngSpan = gridMaxLng - gridMinLng
+    if (latSpan === 0 || lngSpan === 0) return null
 
     // 1. Clip canvas to boundary if configured
     if (hasBoundary && boundary?.coordinates) {
       ctx.beginPath()
       boundary.coordinates.forEach((coord, index) => {
-        const px = ((coord[1] - gridMinLng) / (gridMaxLng - gridMinLng)) * width
-        const py = height - ((coord[0] - gridMinLat) / (gridMaxLat - gridMinLat)) * height
+        const px = ((coord[1] - gridMinLng) / lngSpan) * W
+        const py = H - ((coord[0] - gridMinLat) / latSpan) * H
         if (index === 0) ctx.moveTo(px, py)
         else ctx.lineTo(px, py)
       })
@@ -1290,35 +1291,100 @@ export default function MineMap({
       ctx.clip()
     }
 
-    // 2. Draw grid cells on canvas
-    currentGridCells.forEach(cell => {
-      if (cell.status === 'uncovered') return
+    // 2. Meters → pixels conversion
+    const centerLat = (gridMinLat + gridMaxLat) / 2
+    const latMeters = latSpan * 111000
+    const lngMeters = lngSpan * 111000 * Math.cos((centerLat * Math.PI) / 180)
+    const pxPerMeter = Math.min(W / lngMeters, H / latMeters)
 
-      let cellColor = '#22C55E' // critical/ruim -> Verde
-      if (cell.status === 'excellent') cellColor = '#EF4444' // excelente -> Vermelho
-      else if (cell.status === 'good') cellColor = '#EAB308' // bom -> Amarelo
+    // 3. Build list of repeaters to render
+    let renderRepeaters = activeRepeaters.filter(r =>
+      r.latitude != null && r.longitude != null && !deactivatedRepeaterIds.includes(r.id)
+    )
+    if (showIndividualCoverage && selectedRepeaterId) {
+      renderRepeaters = renderRepeaters.filter(r => r.id === selectedRepeaterId)
+    }
+    if (simulatedRepeater) {
+      renderRepeaters = [...renderRepeaters, {
+        id: 'sim', latitude: simulatedRepeater.latitude, longitude: simulatedRepeater.longitude,
+        range: liveHeatRadius, model: simulatedRepeater.model,
+        name: 'Simulado', code: 'SIM', status: 'ONLINE', altitude: null,
+        locationDescription: null, updatedAt: '', updatedBy: null
+      } as any]
+    }
 
-      const x = cell.j * cellSize
-      const y = (resolution - 1 - cell.i) * cellSize
+    if (renderRepeaters.length === 0) return null
 
-      ctx.fillStyle = cellColor
-      ctx.fillRect(x, y, cellSize, cellSize)
+    const toCanvas = (lat: number, lng: number) => ({
+      x: ((lng - gridMinLng) / lngSpan) * W,
+      y: H - ((lat - gridMinLat) / latSpan) * H,
     })
 
-    // 3. Create blurred image overlay
-    const blurredCanvas = document.createElement('canvas')
-    blurredCanvas.width = width
-    blurredCanvas.height = height
-    const blurredCtx = blurredCanvas.getContext('2d')
-    if (blurredCtx) {
-      const blurPx = Math.max(2, (liveHeatBlur / 100) * 16)
-      blurredCtx.filter = `blur(${blurPx}px)`
-      blurredCtx.drawImage(canvas, 0, 0)
-      return blurredCanvas.toDataURL()
+    const rPx = liveHeatRadius * pxPerMeter
+
+    // 4. Draw in layers — outer (green/weak) first so inner (red/strong) paints on top
+    // Layer: green outer ring  [50% .. 100%] of radius
+    renderRepeaters.forEach(rpt => {
+      const { x, y } = toCanvas(rpt.latitude!, rpt.longitude!)
+      const innerR = rPx * 0.50
+      const outerR = rPx
+      const grad = ctx.createRadialGradient(x, y, innerR, x, y, outerR)
+      grad.addColorStop(0, 'rgba(34,197,94,0.55)')
+      grad.addColorStop(1, 'rgba(34,197,94,0)')
+      ctx.fillStyle = grad
+      ctx.beginPath()
+      ctx.arc(x, y, outerR, 0, Math.PI * 2)
+      ctx.fill()
+    })
+
+    // Layer: yellow middle ring  [0% .. 55%] of radius
+    renderRepeaters.forEach(rpt => {
+      const { x, y } = toCanvas(rpt.latitude!, rpt.longitude!)
+      const outerR = rPx * 0.55
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, outerR)
+      grad.addColorStop(0, 'rgba(234,179,8,0)')
+      grad.addColorStop(0.35, 'rgba(234,179,8,0.75)')
+      grad.addColorStop(1, 'rgba(234,179,8,0)')
+      ctx.fillStyle = grad
+      ctx.beginPath()
+      ctx.arc(x, y, outerR, 0, Math.PI * 2)
+      ctx.fill()
+    })
+
+    // Layer: red inner circle  [0% .. 32%] of radius
+    renderRepeaters.forEach(rpt => {
+      const { x, y } = toCanvas(rpt.latitude!, rpt.longitude!)
+      const outerR = rPx * 0.32
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, outerR)
+      grad.addColorStop(0, 'rgba(239,68,68,0.95)')
+      grad.addColorStop(0.6, 'rgba(239,68,68,0.5)')
+      grad.addColorStop(1, 'rgba(239,68,68,0)')
+      ctx.fillStyle = grad
+      ctx.beginPath()
+      ctx.arc(x, y, outerR, 0, Math.PI * 2)
+      ctx.fill()
+    })
+
+    // 5. Optional blur for smoother edges
+    if (liveHeatBlur > 0) {
+      const blurredCanvas = document.createElement('canvas')
+      blurredCanvas.width = W
+      blurredCanvas.height = H
+      const blurredCtx = blurredCanvas.getContext('2d')
+      if (blurredCtx) {
+        const blurPx = Math.max(1, (liveHeatBlur / 100) * 12)
+        blurredCtx.filter = `blur(${blurPx}px)`
+        blurredCtx.drawImage(canvas, 0, 0)
+        return blurredCanvas.toDataURL()
+      }
     }
 
     return canvas.toDataURL()
-  }, [currentGridCells, gridBounds, hasBoundary, boundary?.coordinates, mapConfig?.gridResolution, liveHeatBlur, liveHeatIntensity])
+  }, [
+    activeRepeaters, deactivatedRepeaterIds, showIndividualCoverage, selectedRepeaterId,
+    simulatedRepeater, gridBounds, hasBoundary, boundary?.coordinates,
+    liveHeatRadius, liveHeatBlur, liveHeatIntensity
+  ])
 
   if (!mounted) return <div className="w-full h-screen bg-slate-100 animate-pulse" />
 
