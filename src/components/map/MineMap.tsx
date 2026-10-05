@@ -1278,19 +1278,6 @@ export default function MineMap({
     const lngSpan = gridMaxLng - gridMinLng
     if (latSpan === 0 || lngSpan === 0) return null
 
-    // 1. Clip canvas to boundary if configured
-    if (hasBoundary && boundary?.coordinates) {
-      ctx.beginPath()
-      boundary.coordinates.forEach((coord, index) => {
-        const px = ((coord[1] - gridMinLng) / lngSpan) * W
-        const py = H - ((coord[0] - gridMinLat) / latSpan) * H
-        if (index === 0) ctx.moveTo(px, py)
-        else ctx.lineTo(px, py)
-      })
-      ctx.closePath()
-      ctx.clip()
-    }
-
     // 2. Meters → pixels conversion
     const centerLat = (gridMinLat + gridMaxLat) / 2
     const latMeters = latSpan * 111000
@@ -1382,7 +1369,7 @@ export default function MineMap({
     return canvas.toDataURL()
   }, [
     activeRepeaters, deactivatedRepeaterIds, showIndividualCoverage, selectedRepeaterId,
-    simulatedRepeater, gridBounds, hasBoundary, boundary?.coordinates,
+    simulatedRepeater, gridBounds,
     liveHeatRadius, liveHeatBlur, liveHeatIntensity
   ])
 
