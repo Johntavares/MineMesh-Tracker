@@ -778,8 +778,8 @@ export default function MineMap({
     activeRepeaters.forEach(r => {
       if (r.latitude && r.longitude) {
         // Expand the bounds slightly around the repeater to fit the heatmap radius
-        // 0.005 degrees is approx 500m
-        const pad = 0.005 
+        // 0.003 degrees is approx 330m
+        const pad = 0.003 
         if (r.latitude - pad < gridMinLat) gridMinLat = r.latitude - pad
         if (r.latitude + pad > gridMaxLat) gridMaxLat = r.latitude + pad
         if (r.longitude - pad < gridMinLng) gridMinLng = r.longitude - pad
@@ -814,7 +814,7 @@ export default function MineMap({
       
       const [[gridMinLat, gridMinLng], [gridMaxLat, gridMaxLng]] = gridBounds
 
-      const resolution = mapConfig?.gridResolution || 40
+      const resolution = mapConfig?.gridResolution || 80
       const latStep = (gridMaxLat - gridMinLat) / resolution
       const lngStep = (gridMaxLng - gridMinLng) / resolution
 
@@ -848,7 +848,10 @@ export default function MineMap({
           const cellLat = gridMinLat + (i + 0.5) * latStep
           const cellLng = gridMinLng + (j + 0.5) * lngStep
           
-          const inside = true // Removed boundary check at user request
+          let inside = true
+          if (hasBoundary && boundary?.coordinates) {
+            inside = isPointInPolygon([cellLat, cellLng], boundary.coordinates)
+          }
           if (!inside) continue
 
           let maxSignal = 0.0
@@ -1261,7 +1264,7 @@ export default function MineMap({
   const heatmapDataUrl = useMemo(() => {
     if (typeof window === 'undefined' || currentGridCells.length === 0) return null
 
-    const resolution = mapConfig?.gridResolution || 40
+    const resolution = mapConfig?.gridResolution || 80
     const cellSize = 8 // scale canvas up for smoother interpolation
     const width = resolution * cellSize
     const height = resolution * cellSize
@@ -1274,7 +1277,18 @@ export default function MineMap({
 
     const [[gridMinLat, gridMinLng], [gridMaxLat, gridMaxLng]] = gridBounds
 
-    // 1. Clip canvas to boundary if configured (REMOVED AT USER REQUEST)
+    // 1. Clip canvas to boundary if configured
+    if (hasBoundary && boundary?.coordinates) {
+      ctx.beginPath()
+      boundary.coordinates.forEach((coord, index) => {
+        const px = ((coord[1] - gridMinLng) / (gridMaxLng - gridMinLng)) * width
+        const py = height - ((coord[0] - gridMinLat) / (gridMaxLat - gridMinLat)) * height
+        if (index === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      })
+      ctx.closePath()
+      ctx.clip()
+    }
 
     // 2. Draw grid cells on canvas
     currentGridCells.forEach(cell => {
@@ -1414,7 +1428,7 @@ export default function MineMap({
               <ImageOverlay
                 url={heatmapDataUrl}
                 bounds={gridBounds as any}
-                opacity={liveHeatIntensity * 0.7}
+                opacity={liveHeatIntensity}
                 interactive={false}
                 zIndex={400}
               />
