@@ -227,3 +227,35 @@ export async function saveCleaning(formData: FormData) {
     return { success: false, error: dict.errors.saveCleaning }
   }
 }
+
+export async function clearCleaningBoard() {
+  try {
+    const session = await getServerSession(authOptions)
+    if (session?.user?.role !== 'ADMIN') {
+      return { success: false, error: 'Acesso negado. Apenas administradores podem zerar o quadro.' }
+    }
+
+    const weekStart = getWeekStart()
+
+    await prisma.cleaningRecord.deleteMany({
+      where: {
+        weekStart: weekStart,
+      },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'RPT_CLEANING_BOARD_RESET',
+        details: `Quadro de limpeza zerado manualmente por ${session?.user?.name || 'Admin'}.`,
+        userId: session?.user?.id || null,
+        mineId: null,
+      },
+    })
+
+    revalidatePath('/', 'layout')
+    return { success: true }
+  } catch (error) {
+    console.error('[CLEANING] Failed to clear board:', error)
+    return { success: false, error: 'Erro interno ao zerar o quadro.' }
+  }
+}

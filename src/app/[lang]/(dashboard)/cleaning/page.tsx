@@ -9,6 +9,7 @@ import { getWeekStart, isSameWeek } from '@/lib/cleaning'
 import { Sparkles, Clock } from 'lucide-react'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { ClearBoardButton } from '@/components/cleaning/ClearBoardButton'
 
 export default async function CleaningPage({
   params,
@@ -94,6 +95,7 @@ export default async function CleaningPage({
               <Clock className="w-3.5 h-3.5" />
               {total - cleanedCount}
             </span>
+            {userRole === 'ADMIN' && <ClearBoardButton />}
           </div>
         </div>
 
