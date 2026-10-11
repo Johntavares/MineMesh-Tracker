@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useParams } from 'next/navigation'
 import { Radio } from 'lucide-react'
@@ -14,7 +14,20 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
   const { t } = useTranslation()
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    const on = () => setIsOnline(true)
+    const off = () => setIsOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => {
+      window.removeEventListener('online', on)
+      window.removeEventListener('offline', off)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,7 +44,7 @@ export default function LoginPage() {
       setError(t('auth.invalidCredentials'))
       setLoading(false)
     } else {
-      router.push(`/${lang}/dashboard`)
+      router.push(`/${lang}/map`)
       router.refresh()
     }
   }
@@ -50,6 +63,18 @@ export default function LoginPage() {
             {t('auth.loginSubtitle')}
           </p>
         </div>
+
+        {!isOnline && (
+          <div className="rounded-xl bg-blue-500/15 border border-blue-500/30 p-3.5 text-center space-y-2">
+            <p className="text-xs text-blue-200 font-medium">Você está sem internet (Modo Offline)</p>
+            <a
+              href={`/${lang}/map`}
+              className="inline-flex items-center justify-center w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shadow"
+            >
+              Abrir Mapa da Mina Salvo
+            </a>
+          </div>
+        )}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
             <div className="rounded-md bg-red-500/10 p-4 border border-red-500/50">

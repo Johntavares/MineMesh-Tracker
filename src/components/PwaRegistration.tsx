@@ -29,6 +29,17 @@ export function PwaRegistration() {
             });
           }
         });
+
+        // Pre-fetch map and dashboard HTML if online
+        if (navigator.onLine) {
+          const lang = window.location.pathname.split('/')[1] || 'pt-BR';
+          setTimeout(() => {
+            fetch(`/${lang}/map`, {
+              credentials: 'same-origin',
+              headers: { Accept: 'text/html' },
+            }).catch(() => {});
+          }, 2000);
+        }
       } catch (err) {
         console.error('[PWA] Service Worker registration failed:', err);
       }

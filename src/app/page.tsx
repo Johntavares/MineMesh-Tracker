@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
 export default function RootPage() {
-  redirect('/pt-BR/login');
+  redirect('/pt-BR/map');
 }
+

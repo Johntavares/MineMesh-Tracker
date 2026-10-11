@@ -1,6 +1,6 @@
-const CACHE_NAME = 'mesh-monitor-v11';
-const STATIC_CACHE_NAME = 'mesh-monitor-static-v11';
-const RSC_CACHE_NAME = 'mesh-monitor-rsc-v11';
+const CACHE_NAME = 'mesh-monitor-v12';
+const STATIC_CACHE_NAME = 'mesh-monitor-static-v12';
+const RSC_CACHE_NAME = 'mesh-monitor-rsc-v12';
 
 const CURRENT_CACHES = [CACHE_NAME, STATIC_CACHE_NAME, RSC_CACHE_NAME];
 
@@ -62,30 +62,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. Next.js Static Assets (JS chunks, CSS stylesheets, fonts, media)
-  // Cache-First with Background Revalidation for INSTANT (0ms) loading!
-  if (url.pathname.startsWith('/_next/static/')) {
-    event.respondWith(
-      caches.open(STATIC_CACHE_NAME).then(async (cache) => {
-        const cachedResponse = await cache.match(event.request);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-        return fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          })
-          .catch(() => new Response('Asset unavailable offline', { status: 408 }));
-      })
-    );
-    return;
-  }
-
-  // 2. NextAuth Session Handler (Stale-While-Revalidate for instant render)
+  // 1. NextAuth Session Handler (Stale-While-Revalidate)
   if (url.pathname === '/api/auth/session') {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
@@ -116,7 +93,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Cleaning Photo Media API (Cache-First)
+  // 2. Cleaning Photo Media API (Cache-First)
   if (url.pathname.startsWith('/api/cleaning/photo/')) {
     event.respondWith(
       caches.open(STATIC_CACHE_NAME).then(async (cache) => {
@@ -140,7 +117,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. React Server Components (RSC) requests (Stale-While-Revalidate for instant navigation!)
+  // 3. React Server Components (RSC) requests (Stale-While-Revalidate for instant navigation!)
   const isRsc =
     url.searchParams.has('_rsc') ||
     event.request.headers.get('RSC') === '1' ||
@@ -167,6 +144,7 @@ self.addEventListener('fetch', (event) => {
                         pageCache.put(url.pathname, htmlRes.clone());
                         if (url.pathname.includes('/map') || url.pathname.includes('/dashboard')) {
                           pageCache.put('/__offline_shell__', htmlRes.clone());
+                          pageCache.put('/pt-BR/map', htmlRes.clone());
                         }
                       }
                     })
@@ -195,7 +173,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 5. HTML Page Navigation (Stale-While-Revalidate for instant render, fallback hierarchy)
+  // 4. HTML Page Navigation (Stale-While-Revalidate for instant render, fallback hierarchy)
   const isHtmlRequest =
     event.request.mode === 'navigate' ||
     event.request.headers.get('Accept')?.includes('text/html');
@@ -203,6 +181,12 @@ self.addEventListener('fetch', (event) => {
   if (isHtmlRequest) {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
+        // If navigating to root "/" (e.g. from PWA desktop/mobile icon):
+        if (url.pathname === '/' || url.pathname === '/pt-BR' || url.pathname === '/en') {
+          const mapPage = (await cache.match('/pt-BR/map')) || (await cache.match('/__offline_shell__'));
+          if (mapPage) return mapPage;
+        }
+
         const cachedPage =
           (await cache.match(event.request)) ||
           (await cache.match(url.pathname)) ||
@@ -215,9 +199,7 @@ self.addEventListener('fetch', (event) => {
               cache.put(url.pathname, networkResponse.clone());
               if (!url.pathname.includes('/login')) {
                 cache.put('/__offline_shell__', networkResponse.clone());
-                if (url.pathname.includes('/map')) {
-                  cache.put('/pt-BR/map', networkResponse.clone());
-                }
+                cache.put('/pt-BR/map', networkResponse.clone());
               }
             }
             return networkResponse;
@@ -232,8 +214,9 @@ self.addEventListener('fetch', (event) => {
         const networkRes = await fetchPromise;
         if (networkRes) return networkRes;
 
-        // Fallback hierarchy if offline and not directly cached
-        const mapPage = await cache.match('/pt-BR/map');
+        // Fallback hierarchy if offline and not directly cached:
+        // Prioritize the Map!
+        const mapPage = (await cache.match('/pt-BR/map')) || (await cache.match('/__offline_shell__'));
         if (mapPage) return mapPage;
 
         const dashPage = await cache.match('/pt-BR/dashboard');
@@ -250,6 +233,29 @@ self.addEventListener('fetch', (event) => {
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mesh Monitor - Offline</title></head><body style="background:#0f172a;color:white;font-family:sans-serif;padding:2rem;text-align:center;"><h2>Offline</h2><p>Página indisponível sem conexão.</p><a href="/pt-BR/map" style="color:#60a5fa;">Ir para o Mapa</a></body></html>',
           { headers: { 'Content-Type': 'text/html' } }
         );
+      })
+    );
+    return;
+  }
+
+  // 5. Next.js Static Assets (JS chunks, CSS stylesheets, fonts, media)
+  // Cache-First with Background Revalidation for INSTANT (0ms) loading!
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      caches.open(STATIC_CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        return fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              cache.put(event.request, networkResponse.clone());
+            }
+            return networkResponse;
+          })
+          .catch(() => new Response('Asset unavailable offline', { status: 408 }));
       })
     );
     return;
