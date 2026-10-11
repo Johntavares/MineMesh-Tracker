@@ -23,17 +23,18 @@ export default async function DashboardPage({
   let pendingCount = 14
 
   try {
-    const [t, on, off, maint, cleaned] = await Promise.all([
-      prisma.repeater.count({ where: { deletedAt: null } }),
-      prisma.repeater.count({ where: { status: 'ONLINE', deletedAt: null } }),
-      prisma.repeater.count({ where: { status: 'OFFLINE', deletedAt: null } }),
-      prisma.repeater.count({ where: { status: 'MAINTENANCE', deletedAt: null } }),
-      prisma.cleaningRecord.count({ where: { weekStart: getWeekStart() } })
+    const [statusCounts, cleaned] = await Promise.all([
+      prisma.repeater.groupBy({
+        by: ['status'],
+        where: { deletedAt: null },
+        _count: { id: true },
+      }),
+      prisma.cleaningRecord.count({ where: { weekStart: getWeekStart() } }),
     ])
-    total = t
-    online = on
-    offline = off
-    maintenance = maint
+    total = statusCounts.reduce((acc, curr) => acc + curr._count.id, 0)
+    online = statusCounts.find((s) => s.status === 'ONLINE')?._count.id || 0
+    offline = statusCounts.find((s) => s.status === 'OFFLINE')?._count.id || 0
+    maintenance = statusCounts.find((s) => s.status === 'MAINTENANCE')?._count.id || 0
     cleanedCount = cleaned
     pendingCount = Math.max(0, total - cleanedCount)
   } catch (e) {
