@@ -192,6 +192,28 @@
     window.addEventListener('online', function() {
       window.location.reload();
     });
+
+    // If an offline app shell or map is already cached, automatically redirect to it!
+    if ('caches' in window) {
+      caches.keys().then(function(keys) {
+        var appCacheName = keys.find(function(k) { return k.startsWith('mesh-monitor-v'); });
+        if (appCacheName) {
+          caches.open(appCacheName).then(function(cache) {
+            cache.match('/pt-BR/map').then(function(res) {
+              if (res && res.status === 200) {
+                window.location.replace('/pt-BR/map');
+              } else {
+                cache.match('/__offline_shell__').then(function(shell) {
+                  if (shell && shell.status === 200) {
+                    window.location.replace('/pt-BR/map');
+                  }
+                });
+              }
+            });
+          });
+        }
+      });
+    }
   </script>
 </body>
 </html>

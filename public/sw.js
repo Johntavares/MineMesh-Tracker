@@ -1,6 +1,6 @@
-const CACHE_NAME = 'mesh-monitor-v9';
-const STATIC_CACHE_NAME = 'mesh-monitor-static-v9';
-const RSC_CACHE_NAME = 'mesh-monitor-rsc-v9';
+const CACHE_NAME = 'mesh-monitor-v10';
+const STATIC_CACHE_NAME = 'mesh-monitor-static-v10';
+const RSC_CACHE_NAME = 'mesh-monitor-rsc-v10';
 
 const CURRENT_CACHES = [CACHE_NAME, STATIC_CACHE_NAME, RSC_CACHE_NAME];
 
@@ -124,6 +124,23 @@ self.addEventListener('fetch', (event) => {
           if (networkResponse && networkResponse.status === 200) {
             const clone = networkResponse.clone();
             caches.open(RSC_CACHE_NAME).then((cache) => cache.put(rscCacheKey, clone));
+
+            // Proactively warm HTML page in background so full page reload offline always works
+            caches.open(CACHE_NAME).then(async (pageCache) => {
+              const hasHtml = await pageCache.match(url.pathname);
+              if (!hasHtml) {
+                fetch(url.pathname, { credentials: 'same-origin', headers: { Accept: 'text/html' } })
+                  .then((htmlRes) => {
+                    if (htmlRes && htmlRes.status === 200) {
+                      pageCache.put(url.pathname, htmlRes.clone());
+                      if (url.pathname.includes('/map') || url.pathname.includes('/dashboard')) {
+                        pageCache.put('/__offline_shell__', htmlRes.clone());
+                      }
+                    }
+                  })
+                  .catch(() => {});
+              }
+            });
           }
           return networkResponse;
         })
@@ -133,7 +150,6 @@ self.addEventListener('fetch', (event) => {
           if (cachedRsc) {
             return cachedRsc;
           }
-          // Return 503 so client-side router falls back to hard navigation (event.request.mode === 'navigate')
           return new Response('RSC offline fallback', {
             status: 503,
             headers: { 'Content-Type': 'text/plain' },
@@ -143,9 +159,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. HTML Page Navigation (Full Page Reloads, Deep Links, Start URL)
+  // 4. HTML Page Navigation (Full Page Reloads, Deep Links, Start URL, HTML background fetches)
   // Network-First with Fallback to Cached Page, App Shell, or Offline HTML
-  if (event.request.mode === 'navigate') {
+  const isHtmlRequest =
+    event.request.mode === 'navigate' ||
+    event.request.headers.get('Accept')?.includes('text/html');
+
+  if (isHtmlRequest) {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
@@ -154,8 +174,11 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, clone);
               cache.put(url.pathname, networkResponse.clone());
-              if (url.pathname.includes('/map') || url.pathname.includes('/dashboard')) {
+              if (!url.pathname.includes('/login')) {
                 cache.put('/__offline_shell__', networkResponse.clone());
+                if (url.pathname.includes('/map')) {
+                  cache.put('/pt-BR/map', networkResponse.clone());
+                }
               }
             });
           }
@@ -165,24 +188,28 @@ self.addEventListener('fetch', (event) => {
           const cache = await caches.open(CACHE_NAME);
 
           // 1. Try exact requested URL or pathname
-          const cachedPage = (await cache.match(event.request)) || (await cache.match(url.pathname));
+          let cachedPage = (await cache.match(event.request)) || (await cache.match(url.pathname));
           if (cachedPage) return cachedPage;
 
-          // 2. If navigating to root "/" or start_url while offline:
-          if (url.pathname === '/' || url.pathname === '/pt-BR' || url.pathname === '/en') {
-            const mapPage = await cache.match('/pt-BR/map');
-            if (mapPage) return mapPage;
-            const dashPage = await cache.match('/pt-BR/dashboard');
-            if (dashPage) return dashPage;
-            const shell = await cache.match('/__offline_shell__');
-            if (shell) return shell;
-            const loginPage = await cache.match('/pt-BR/login');
-            if (loginPage) return loginPage;
-          }
+          // 2. Try the universal app shell or core routes
+          const mapPage = await cache.match('/pt-BR/map');
+          if (mapPage) return mapPage;
 
-          // 3. Fallback to generic cached app shell
+          const dashPage = await cache.match('/pt-BR/dashboard');
+          if (dashPage) return dashPage;
+
           const shell = await cache.match('/__offline_shell__');
           if (shell) return shell;
+
+          // 3. Search for any cached dashboard HTML in CACHE_NAME
+          const keys = await cache.keys();
+          for (const req of keys) {
+            const keyUrl = new URL(req.url);
+            if (!keyUrl.pathname.includes('/login') && !keyUrl.pathname.includes('/offline')) {
+              const res = await cache.match(req);
+              if (res) return res;
+            }
+          }
 
           // 4. Fallback to pre-cached offline.html
           const staticCache = await caches.open(STATIC_CACHE_NAME);
@@ -200,7 +227,6 @@ self.addEventListener('fetch', (event) => {
 
   // 5. Next.js Static Assets (JS chunks, CSS stylesheets, fonts, media)
   // Network-First (with instant cache fallback when offline)
-  // This guarantees zero hydration mismatches while online, and full offline functionality!
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
       fetch(event.request)
