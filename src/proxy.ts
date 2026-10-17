@@ -58,6 +58,7 @@ export async function proxy(request: NextRequest) {
       const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
       if (!token) {
         const loginUrl = new URL(`/${locale}/login`, request.url)
+        loginUrl.searchParams.set('callbackUrl', request.nextUrl.pathname + request.nextUrl.search)
         return NextResponse.redirect(loginUrl)
       }
     }

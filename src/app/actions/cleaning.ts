@@ -199,7 +199,7 @@ export async function saveCleaning(formData: FormData) {
         action: 'RPT_CLEANING',
         details: `Limpeza da repetidora ${repeater.code} registrada por ${session?.user?.name || 'Sistema'}.`,
         newValues: {
-          photoUrl,
+          photoUrl: photoUrl.startsWith('data:') ? `/api/cleaning/photo/${record.id}` : photoUrl,
           notes,
           team,
           weekStart: weekStart.toISOString(),

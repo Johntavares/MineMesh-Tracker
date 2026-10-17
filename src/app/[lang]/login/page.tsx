@@ -44,8 +44,9 @@ export default function LoginPage() {
       setError(t('auth.invalidCredentials'))
       setLoading(false)
     } else {
-      router.push(`/${lang}/map`)
-      router.refresh()
+      const searchParams = new URLSearchParams(window.location.search)
+      const callbackUrl = searchParams.get('callbackUrl')
+      window.location.href = callbackUrl || `/${lang}/map`
     }
   }
 

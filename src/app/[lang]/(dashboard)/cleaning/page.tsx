@@ -5,7 +5,7 @@ import { getDictionary } from '@/lib/i18n/server'
 import { isLocale } from '@/lib/i18n/config'
 import { notFound } from 'next/navigation'
 import { CleaningTable } from '@/components/cleaning/CleaningTable'
-import { getWeekStart, isSameWeek } from '@/lib/cleaning'
+import { getWeekStart } from '@/lib/cleaning'
 import { Sparkles, Clock } from 'lucide-react'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -22,15 +22,34 @@ export default async function CleaningPage({
   const session = await getServerSession(authOptions)
   const userRole = session?.user?.role || 'OPERATOR'
 
+  const currentWeek = getWeekStart()
+
   const repeaters = await prisma.repeater.findMany({
     where: { deletedAt: null },
     orderBy: { code: 'asc' },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      model: true,
+      status: true,
       cleaningRecords: {
-        orderBy: { weekStart: 'desc' },
-        include: { cleanedBy: true },
-      },
-    },
+        where: { weekStart: currentWeek },
+        select: {
+          id: true,
+          notes: true,
+          createdAt: true,
+          team: true,
+          photoDate: true,
+          latitude: true,
+          longitude: true,
+          cleanedBy: {
+            select: { name: true }
+          }
+        },
+        take: 1
+      }
+    }
   })
 
   // Hide ROOTs and 320 from the cleaning panel as per user request
@@ -40,9 +59,8 @@ export default async function CleaningPage({
     return !code.includes('ROOT') && !name.includes('ROOT') && !code.includes('320') && !name.includes('320')
   })
 
-  const currentWeek = getWeekStart()
   const rows = filtered.map((r) => {
-    const record = r.cleaningRecords.find((c) => isSameWeek(c.weekStart, currentWeek))
+    const record = r.cleaningRecords[0] || null
     return {
       id: r.id,
       name: r.name,
@@ -52,7 +70,7 @@ export default async function CleaningPage({
       currentCleaning: record
         ? {
             id: record.id,
-            photoUrl: record.photoUrl.startsWith('data:') ? `/api/cleaning/photo/${record.id}` : record.photoUrl,
+            photoUrl: `/api/cleaning/photo/${record.id}`,
             notes: record.notes,
             createdAt: record.createdAt.toISOString(),
             cleanedBy: record.cleanedBy?.name ?? null,

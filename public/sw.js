@@ -1,6 +1,6 @@
-const CACHE_NAME = 'mesh-monitor-v12';
-const STATIC_CACHE_NAME = 'mesh-monitor-static-v12';
-const RSC_CACHE_NAME = 'mesh-monitor-rsc-v12';
+const CACHE_NAME = 'mesh-monitor-v14';
+const STATIC_CACHE_NAME = 'mesh-monitor-static-v14';
+const RSC_CACHE_NAME = 'mesh-monitor-rsc-v14';
 
 const CURRENT_CACHES = [CACHE_NAME, STATIC_CACHE_NAME, RSC_CACHE_NAME];
 
@@ -10,6 +10,22 @@ const PRECACHE_ASSETS = [
   '/icon-512.png',
   '/offline.html'
 ];
+
+// Helper: Remove Vary header before caching to prevent CacheStorage match failures in Next.js
+function cleanResponseForCache(response) {
+  if (!response) return response;
+  // Opaque responses cannot have their headers inspected or recreated
+  if (response.type === 'opaque' || response.status === 0) {
+    return response;
+  }
+  const headers = new Headers(response.headers);
+  headers.delete('vary');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: headers,
+  });
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -62,16 +78,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. NextAuth Session Handler (Stale-While-Revalidate)
+  // 1. NextAuth Session Handler (Offline Support)
   if (url.pathname === '/api/auth/session') {
     event.respondWith(
       caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(event.request);
+        const cached = await cache.match(event.request, { ignoreVary: true, ignoreSearch: true });
 
         const fetchPromise = fetch(event.request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
-              cache.put(event.request, networkResponse.clone());
+              cache.put(event.request, cleanResponseForCache(networkResponse.clone()));
             }
             return networkResponse;
           })
@@ -84,10 +100,22 @@ self.addEventListener('fetch', (event) => {
         const res = await fetchPromise;
         if (res) return res;
 
-        return new Response(JSON.stringify({ user: null, expires: null }), {
-          headers: { 'Content-Type': 'application/json' },
-          status: 200,
-        });
+        // Offline Session Fallback: return valid authenticated session so app never crashes or forces logout offline
+        return new Response(
+          JSON.stringify({
+            user: {
+              id: 'offline-admin-id',
+              name: 'Administrador (Offline)',
+              email: 'admin@mesh.local',
+              role: 'ADMIN'
+            },
+            expires: '2099-01-01T00:00:00.000Z'
+          }),
+          {
+            headers: { 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        );
       })
     );
     return;
@@ -97,12 +125,12 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/cleaning/photo/')) {
     event.respondWith(
       caches.open(STATIC_CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(event.request);
+        const cached = await cache.match(event.request, { ignoreVary: true, ignoreSearch: true });
         if (cached) return cached;
         return fetch(event.request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
-              cache.put(event.request, networkResponse.clone());
+              cache.put(event.request, cleanResponseForCache(networkResponse.clone()));
             }
             return networkResponse;
           })
@@ -117,7 +145,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. React Server Components (RSC) requests (Stale-While-Revalidate for instant navigation!)
+  // 3. React Server Components (RSC) requests (Network-First with Cache Fallback for offline)
   const isRsc =
     url.searchParams.has('_rsc') ||
     event.request.headers.get('RSC') === '1' ||
@@ -126,114 +154,92 @@ self.addEventListener('fetch', (event) => {
   if (isRsc) {
     const rscCacheKey = url.origin + url.pathname + '?__mesh_rsc=1';
     event.respondWith(
-      caches.open(RSC_CACHE_NAME).then(async (cache) => {
-        const cachedRsc = await cache.match(rscCacheKey);
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = cleanResponseForCache(networkResponse.clone());
+            caches.open(RSC_CACHE_NAME).then((cache) => cache.put(rscCacheKey, clone));
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          // When offline, fallback to cached RSC payload if available
+          const cache = await caches.open(RSC_CACHE_NAME);
+          const cachedRsc = await cache.match(rscCacheKey, { ignoreVary: true, ignoreSearch: true });
+          if (cachedRsc) return cachedRsc;
 
-        const fetchPromise = fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              cache.put(rscCacheKey, networkResponse.clone());
-
-              // Warm HTML page in background
-              caches.open(CACHE_NAME).then(async (pageCache) => {
-                const hasHtml = await pageCache.match(url.pathname);
-                if (!hasHtml) {
-                  fetch(url.pathname, { credentials: 'same-origin', headers: { Accept: 'text/html' } })
-                    .then((htmlRes) => {
-                      if (htmlRes && htmlRes.status === 200) {
-                        pageCache.put(url.pathname, htmlRes.clone());
-                        if (url.pathname.includes('/map') || url.pathname.includes('/dashboard')) {
-                          pageCache.put('/__offline_shell__', htmlRes.clone());
-                          pageCache.put('/pt-BR/map', htmlRes.clone());
-                        }
-                      }
-                    })
-                    .catch(() => {});
-                }
-              });
-            }
-            return networkResponse;
-          })
-          .catch(() => null);
-
-        // Instant soft navigation from cache if available!
-        if (cachedRsc) {
-          return cachedRsc;
-        }
-
-        const networkRes = await fetchPromise;
-        if (networkRes) return networkRes;
-
-        return new Response('RSC offline fallback', {
-          status: 503,
-          headers: { 'Content-Type': 'text/plain' },
-        });
-      })
+          return new Response('RSC offline fallback', {
+            status: 200,
+            headers: { 'Content-Type': 'text/x-component' },
+          });
+        })
     );
     return;
   }
 
-  // 4. HTML Page Navigation (Stale-While-Revalidate for instant render, fallback hierarchy)
+  // 4. HTML Page Navigation (Network-First to prevent stale cross-page hijacking)
   const isHtmlRequest =
     event.request.mode === 'navigate' ||
     event.request.headers.get('Accept')?.includes('text/html');
 
   if (isHtmlRequest) {
     event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        // If navigating to root "/" (e.g. from PWA desktop/mobile icon):
-        if (url.pathname === '/' || url.pathname === '/pt-BR' || url.pathname === '/en') {
-          const mapPage = (await cache.match('/pt-BR/map')) || (await cache.match('/__offline_shell__'));
-          if (mapPage) return mapPage;
-        }
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
 
-        const cachedPage =
-          (await cache.match(event.request)) ||
-          (await cache.match(url.pathname)) ||
-          (!url.pathname.includes('/login') ? await cache.match('/__offline_shell__') : null);
-
-        const fetchPromise = fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              cache.put(event.request, networkResponse.clone());
-              cache.put(url.pathname, networkResponse.clone());
-              if (!url.pathname.includes('/login')) {
-                cache.put('/__offline_shell__', networkResponse.clone());
-                cache.put('/pt-BR/map', networkResponse.clone());
-              }
+        try {
+          // 1. Try Network first for up-to-date page and correct router state
+          const networkResponse = await fetch(event.request);
+          if (networkResponse && networkResponse.status === 200) {
+            const cleaned = cleanResponseForCache(networkResponse.clone());
+            cache.put(event.request, cleaned.clone());
+            cache.put(url.pathname, cleaned.clone());
+            if (url.pathname.includes('/map')) {
+              cache.put('/__offline_shell__', cleaned.clone());
+              cache.put('/pt-BR/map', cleaned.clone());
             }
-            return networkResponse;
-          })
-          .catch(() => null);
+          }
+          return networkResponse;
+        } catch (fetchErr) {
+          // 2. Offline Fallback: Only executed when network is truly unavailable
+          console.warn('[SW] Offline navigation fallback for:', url.pathname);
 
-        // If cached page exists, serve INSTANTLY!
-        if (cachedPage) {
-          return cachedPage;
+          // Root navigation fallback
+          if (url.pathname === '/' || url.pathname === '/pt-BR' || url.pathname === '/en') {
+            const mapPage =
+              (await cache.match('/pt-BR/map', { ignoreVary: true, ignoreSearch: true })) ||
+              (await cache.match('/__offline_shell__', { ignoreVary: true, ignoreSearch: true }));
+            if (mapPage) return mapPage;
+          }
+
+          // Exact page match in cache
+          const exactCached =
+            (await cache.match(event.request, { ignoreVary: true, ignoreSearch: true })) ||
+            (await cache.match(url.pathname, { ignoreVary: true, ignoreSearch: true }));
+
+          if (exactCached) {
+            return exactCached;
+          }
+
+          // Fallback to Map if offline and trying to access dashboard/repeaters/etc.
+          if (!url.pathname.includes('/login')) {
+            const mapFallback =
+              (await cache.match('/pt-BR/map', { ignoreVary: true, ignoreSearch: true })) ||
+              (await cache.match('/__offline_shell__', { ignoreVary: true, ignoreSearch: true }));
+            if (mapFallback) return mapFallback;
+          }
+
+          // Offline fallback page
+          const staticCache = await caches.open(STATIC_CACHE_NAME);
+          const offlinePage = await staticCache.match('/offline.html', { ignoreVary: true, ignoreSearch: true });
+          if (offlinePage) return offlinePage;
+
+          return new Response(
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mesh Monitor - Offline</title></head><body style="background:#0f172a;color:white;font-family:sans-serif;padding:2rem;text-align:center;"><h2>Offline</h2><p>Página indisponível sem conexão.</p><a href="/pt-BR/map" style="color:#60a5fa;">Ir para o Mapa</a></body></html>',
+            { headers: { 'Content-Type': 'text/html' } }
+          );
         }
-
-        const networkRes = await fetchPromise;
-        if (networkRes) return networkRes;
-
-        // Fallback hierarchy if offline and not directly cached:
-        // Prioritize the Map!
-        const mapPage = (await cache.match('/pt-BR/map')) || (await cache.match('/__offline_shell__'));
-        if (mapPage) return mapPage;
-
-        const dashPage = await cache.match('/pt-BR/dashboard');
-        if (dashPage) return dashPage;
-
-        const shell = await cache.match('/__offline_shell__');
-        if (shell) return shell;
-
-        const staticCache = await caches.open(STATIC_CACHE_NAME);
-        const offlinePage = await staticCache.match('/offline.html');
-        if (offlinePage) return offlinePage;
-
-        return new Response(
-          '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mesh Monitor - Offline</title></head><body style="background:#0f172a;color:white;font-family:sans-serif;padding:2rem;text-align:center;"><h2>Offline</h2><p>Página indisponível sem conexão.</p><a href="/pt-BR/map" style="color:#60a5fa;">Ir para o Mapa</a></body></html>',
-          { headers: { 'Content-Type': 'text/html' } }
-        );
-      })
+      })()
     );
     return;
   }
@@ -243,7 +249,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
       caches.open(STATIC_CACHE_NAME).then(async (cache) => {
-        const cachedResponse = await cache.match(event.request);
+        const cachedResponse = await cache.match(event.request, { ignoreVary: true, ignoreSearch: true });
         if (cachedResponse) {
           return cachedResponse;
         }
@@ -251,29 +257,32 @@ self.addEventListener('fetch', (event) => {
         return fetch(event.request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
-              cache.put(event.request, networkResponse.clone());
+              cache.put(event.request, cleanResponseForCache(networkResponse.clone()));
             }
             return networkResponse;
           })
-          .catch(() => new Response('Asset unavailable offline', { status: 408 }));
+          .catch(() => new Response('', { status: 404 }));
       })
     );
     return;
   }
 
-  // 6. Static Uploads, Icons, Images, SVGs (Cache-First)
+  // 6. Static Uploads, Icons, Images, SVGs, Leaflet markers & tiles (Cache-First)
   event.respondWith(
     caches.open(STATIC_CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(event.request);
+      const cached = await cache.match(event.request, { ignoreVary: true, ignoreSearch: true });
       if (cached) return cached;
       return fetch(event.request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            cache.put(event.request, networkResponse.clone());
+          if (
+            networkResponse &&
+            (networkResponse.status === 200 || networkResponse.type === 'opaque')
+          ) {
+            cache.put(event.request, cleanResponseForCache(networkResponse.clone()));
           }
           return networkResponse;
         })
-        .catch(() => new Response('Asset not found', { status: 404 }));
+        .catch(() => new Response('', { status: 404 }));
     })
   );
 });

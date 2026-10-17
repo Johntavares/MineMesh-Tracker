@@ -17,10 +17,12 @@ export function OfflineRouteWarmer({ lang }: { lang: string }) {
     ]
     let index = 0
 
+    let interval: ReturnType<typeof setInterval> | null = null
+
     const timer = setTimeout(() => {
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         if (index >= routes.length) {
-          clearInterval(interval)
+          if (interval) clearInterval(interval)
           return
         }
         const route = routes[index++]
@@ -28,11 +30,30 @@ export function OfflineRouteWarmer({ lang }: { lang: string }) {
           method: 'GET',
           credentials: 'same-origin',
           headers: { Accept: 'text/html' },
-        }).catch(() => {})
+        })
+          .then(async (res) => {
+            if (res.ok && 'caches' in window) {
+              const text = await res.text()
+              const cache = await caches.open('mesh-monitor-v14')
+              const clean = new Response(text, {
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+                status: 200,
+              })
+              await cache.put(route, clean.clone())
+              if (route.includes('/map')) {
+                await cache.put('/pt-BR/map', clean.clone())
+                await cache.put('/__offline_shell__', clean.clone())
+              }
+            }
+          })
+          .catch(() => {})
       }, 3000)
     }, 4000)
 
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      if (interval) clearInterval(interval)
+    }
   }, [lang])
 
   return null
