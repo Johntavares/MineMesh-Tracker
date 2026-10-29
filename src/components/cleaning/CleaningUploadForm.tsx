@@ -1,10 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/lib/i18n/client'
 import { saveCleaning } from '@/app/actions/cleaning'
-import { Camera, Upload, CheckCircle2, Loader2, MapPin, ShieldCheck } from 'lucide-react'
+import { Camera, Upload, CheckCircle2, Loader2, MapPin, ShieldCheck, Navigation } from 'lucide-react'
 
 export function CleaningUploadForm({
   repeaterId,
@@ -22,8 +22,30 @@ export function CleaningUploadForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [deviceCoords, setDeviceCoords] = useState<{ lat: number; lng: number } | null>(null)
 
   const isAdmin = userRole === 'ADMIN'
+
+  const requestLocation = () => {
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setDeviceCoords({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          })
+        },
+        (err) => {
+          console.warn('[CLEANING] Geolocation error:', err.message)
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      )
+    }
+  }
+
+  useEffect(() => {
+    requestLocation()
+  }, [])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -32,6 +54,7 @@ export function CleaningUploadForm({
       setPreview(URL.createObjectURL(file))
       setError('')
       setSuccess(false)
+      requestLocation()
     }
   }
 
@@ -50,6 +73,10 @@ export function CleaningUploadForm({
 
     const formData = new FormData(form)
     formData.set('repeaterId', repeaterId)
+    if (deviceCoords) {
+      formData.set('browserLat', deviceCoords.lat.toString())
+      formData.set('browserLng', deviceCoords.lng.toString())
+    }
 
     const result = await saveCleaning(formData)
 
@@ -69,6 +96,12 @@ export function CleaningUploadForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <input type="hidden" name="repeaterId" value={repeaterId} />
+      {deviceCoords && (
+        <>
+          <input type="hidden" name="browserLat" value={deviceCoords.lat} />
+          <input type="hidden" name="browserLng" value={deviceCoords.lng} />
+        </>
+      )}
 
       <button
         type="button"
@@ -133,12 +166,12 @@ export function CleaningUploadForm({
           </div>
         </div>
       ) : (
-        <div className="flex items-start gap-2 text-xs text-amber-900 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-          <MapPin className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 text-xs text-emerald-900 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
+          <Navigation className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            <p className="font-semibold text-amber-950">Foto com GPS Obrigatória (Janela de até 72h)</p>
-            <p className="text-[11px] text-amber-800">
-              Você pode tirar na hora ou selecionar uma foto da galeria tirada no seu turno (últimas 72h). A foto <strong>deve conter o GPS ativado</strong> na câmera para atualizar a localização da repetidora.
+            <p className="font-semibold text-emerald-950">Registro de Evidência de Campo</p>
+            <p className="text-[11px] text-emerald-800">
+              Tire a foto no local ou selecione da galeria. {deviceCoords ? '✓ Localização GPS do dispositivo detectada.' : 'A localização será registrada automaticamente com os dados da foto ou do dispositivo.'}
             </p>
           </div>
         </div>

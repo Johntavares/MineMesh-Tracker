@@ -78,6 +78,11 @@ export async function saveCleaning(formData: FormData) {
     const weekStart = getWeekStart()
     const team = (formData.get('team') as string) || null
 
+    const rawBrowserLat = formData.get('browserLat') as string | null
+    const rawBrowserLng = formData.get('browserLng') as string | null
+    const browserLat = rawBrowserLat ? parseFloat(rawBrowserLat) : null
+    const browserLng = rawBrowserLng ? parseFloat(rawBrowserLng) : null
+
     let latitude: number | null = null
     let longitude: number | null = null
     let photoDate: Date | null = null
@@ -99,69 +104,62 @@ export async function saveCleaning(formData: FormData) {
       console.warn('[CLEANING] Failed to parse EXIF', e)
     }
 
-    // Regras estritas para OPERADOR (prevenção de fraudes e fotos antigas/repetidas)
+    // Se a foto não continha coordenadas no EXIF, utiliza as coordenadas do dispositivo/navegador
+    if ((latitude === null || longitude === null) && browserLat !== null && browserLng !== null && !isNaN(browserLat) && !isNaN(browserLng)) {
+      latitude = browserLat
+      longitude = browserLng
+    }
+
+    // Se não houver data no EXIF, registra a data e hora do momento do envio
+    if (!photoDate || isNaN(photoDate.getTime())) {
+      photoDate = new Date()
+    }
+
+    // Validações para OPERADOR (flexibilizadas para não impedir uploads legítimos em campo)
     if (!isAdmin) {
-      // 1. Localização (GPS) obrigatória
-      if (latitude === null || longitude === null) {
-        return {
-          success: false,
-          error: 'A foto não contém dados de localização (GPS). Por favor, ative a localização na câmera do seu celular e tire a foto no local da repetidora.',
-        }
-      }
-
-      // 2. Data/hora original da câmera obrigatória
-      if (!photoDate || isNaN(photoDate.getTime())) {
-        return {
-          success: false,
-          error: 'A foto não possui registro de data/hora original da câmera. Para operadores, a foto deve ser tirada no momento do registro através da câmera.',
-        }
-      }
-
-      // 3. Validação de janela de tempo: a foto deve ter sido tirada em até 72 horas (tolerância para offline/ontem)
       const now = new Date()
       const diffMinutes = (now.getTime() - photoDate.getTime()) / (1000 * 60)
       const MAX_AGE_MINUTES = 72 * 60 // 72 horas
 
+      // Se a foto tiver data EXIF antiga com mais de 72 horas
       if (diffMinutes > MAX_AGE_MINUTES) {
         const timeString = photoDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
         const dateString = photoDate.toLocaleDateString('pt-BR')
         return {
           success: false,
-          error: `A foto selecionada é antiga (tirada em ${dateString} às ${timeString}). Para operadores, a foto deve ter sido tirada nas últimas 72 horas.`,
+          error: `A foto selecionada é antiga (tirada em ${dateString} às ${timeString}). Para operadores, selecione uma foto das últimas 72 horas.`,
         }
       }
 
-      if (diffMinutes < -5) {
+      if (diffMinutes < -15) {
         return {
           success: false,
-          error: 'O horário da foto está no futuro. Ajuste o relógio do seu celular e tire uma nova foto.',
+          error: 'O horário da foto está adiantado em relação ao horário atual. Ajuste o relógio do seu celular e tente novamente.',
         }
       }
 
-      // 4. Anti-fraude: Bloqueio de fotos repetidas já utilizadas
-      const existingDuplicate = await prisma.cleaningRecord.findFirst({
-        where: {
-          photoDate: photoDate,
-          latitude: latitude,
-          longitude: longitude,
-        },
-        include: {
-          repeater: {
-            select: { code: true }
+      // Anti-fraude: Bloqueio de fotos idênticas já utilizadas em outras repetidoras
+      if (latitude !== null && longitude !== null) {
+        const existingDuplicate = await prisma.cleaningRecord.findFirst({
+          where: {
+            photoDate: photoDate,
+            latitude: latitude,
+            longitude: longitude,
+            repeaterId: { not: repeaterId }
+          },
+          include: {
+            repeater: {
+              select: { code: true }
+            }
+          }
+        })
+
+        if (existingDuplicate) {
+          return {
+            success: false,
+            error: `Esta mesma foto já foi registrada anteriormente na repetidora ${existingDuplicate.repeater.code}. Envie uma nova foto desta repetidora.`,
           }
         }
-      })
-
-      if (existingDuplicate) {
-        return {
-          success: false,
-          error: `Esta foto já foi registrada anteriormente na repetidora ${existingDuplicate.repeater.code}. Tire uma nova foto em tempo real.`,
-        }
-      }
-    } else {
-      // Para ADMIN: se não houver data no EXIF, registra a data e hora do momento do upload
-      if (!photoDate || isNaN(photoDate.getTime())) {
-        photoDate = new Date()
       }
     }
 
