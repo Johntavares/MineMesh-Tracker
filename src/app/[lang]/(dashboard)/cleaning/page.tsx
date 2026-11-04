@@ -5,7 +5,6 @@ import { getDictionary } from '@/lib/i18n/server'
 import { isLocale } from '@/lib/i18n/config'
 import { notFound } from 'next/navigation'
 import { CleaningTable } from '@/components/cleaning/CleaningTable'
-import { getWeekStart } from '@/lib/cleaning'
 import { Sparkles, Clock } from 'lucide-react'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -22,35 +21,40 @@ export default async function CleaningPage({
   const session = await getServerSession(authOptions)
   const userRole = session?.user?.role || 'OPERATOR'
 
-  const currentWeek = getWeekStart()
-
-  const repeaters = await prisma.repeater.findMany({
-    where: { deletedAt: null },
-    orderBy: { code: 'asc' },
-    select: {
-      id: true,
-      name: true,
-      code: true,
-      model: true,
-      status: true,
-      cleaningRecords: {
-        where: { weekStart: currentWeek },
-        select: {
-          id: true,
-          notes: true,
-          createdAt: true,
-          team: true,
-          photoDate: true,
-          latitude: true,
-          longitude: true,
-          cleanedBy: {
-            select: { name: true }
-          }
-        },
-        take: 1
+  const [repeaters, lastReset] = await Promise.all([
+    prisma.repeater.findMany({
+      where: { deletedAt: null },
+      orderBy: { code: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        model: true,
+        status: true,
+        cleaningRecords: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            notes: true,
+            createdAt: true,
+            team: true,
+            photoDate: true,
+            latitude: true,
+            longitude: true,
+            cleanedBy: {
+              select: { name: true }
+            }
+          },
+        }
       }
-    }
-  })
+    }),
+    prisma.auditLog.findFirst({
+      where: { action: 'RPT_CLEANING_BOARD_RESET' },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true }
+    })
+  ])
 
   // Hide ROOTs and 320 from the cleaning panel as per user request
   const filtered = repeaters.filter(r => {
@@ -86,11 +90,13 @@ export default async function CleaningPage({
   const cleanedCount = rows.filter((r) => r.currentCleaning).length
   const total = rows.length
 
-  const weekLabel = currentWeek.toLocaleDateString(lang === 'en' ? 'en-US' : 'pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  const resetLabel = lastReset
+    ? new Date(lastReset.createdAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : null
 
   return (
     <div className="h-full overflow-y-auto">
@@ -100,9 +106,11 @@ export default async function CleaningPage({
             <h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">
               {dict.cleaning.title}
             </h1>
-            <span className="hidden sm:inline-flex text-xs text-slate-500 shrink-0">
-              {dict.cleaning.week}: {weekLabel}
-            </span>
+            {resetLabel && (
+              <span className="hidden sm:inline-flex text-xs text-slate-500 shrink-0">
+                {dict.cleaning.lastReset || 'Zerado em'}: {resetLabel}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-emerald-600 text-white text-xs sm:text-sm font-semibold">

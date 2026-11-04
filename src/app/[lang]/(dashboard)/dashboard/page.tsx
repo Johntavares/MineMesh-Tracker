@@ -4,7 +4,6 @@ import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
 import { getDictionary } from '@/lib/i18n/server'
 import { isLocale } from '@/lib/i18n/config'
 import { notFound } from 'next/navigation'
-import { getWeekStart } from '@/lib/cleaning'
 
 export default async function DashboardPage({
   params,
@@ -29,7 +28,7 @@ export default async function DashboardPage({
         where: { deletedAt: null },
         _count: { id: true },
       }),
-      prisma.cleaningRecord.count({ where: { weekStart: getWeekStart() } }),
+      prisma.cleaningRecord.count(),
     ])
     total = statusCounts.reduce((acc, curr) => acc + curr._count.id, 0)
     online = statusCounts.find((s) => s.status === 'ONLINE')?._count.id || 0

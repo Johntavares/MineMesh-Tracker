@@ -116,13 +116,14 @@
     "noLogs": "No logs recorded yet."
   },
   "cleaning": {
-    "title": "Weekly Cleaning Control",
+    "title": "Repeater Cleaning Control",
     "week": "Week",
-    "cleanedThisWeek": "Cleaned this week",
+    "lastReset": "Reset at",
+    "cleanedThisWeek": "Cleaned on board",
     "cleaned": "Cleaned",
     "pending": "Pending",
     "pendingCleaning": "Pending",
-    "allClean": "All repeaters cleaned this week!",
+    "allClean": "All repeaters have been cleaned!",
     "noRepeaters": "No repeaters found. Register repeaters first.",
     "uploadPhoto": "Take cleaning photo",
     "changePhoto": "Change photo",
@@ -137,15 +138,15 @@
     "view": "View",
     "cleaningStatus": "Cleaning Status",
     "lastCleaning": "Last Cleaning",
-    "thisWeek": "this week",
-    "noEvidence": "No evidence sent for this week.",
+    "thisWeek": "on board",
+    "noEvidence": "No evidence sent.",
     "locationHint": "The device location will be used to update the repeater on the map.",
     "locationSaved": "Location captured! Repeater updated on the map.",
     "locationUnavailable": "Location unavailable. Sending without updating the map.",
     "location": "Location",
     "noLocation": "Not provided",
     "updatedAt": "Updated at",
-    "pendingDescription": "Cleaning pending this week. Send the photo as evidence."
+    "pendingDescription": "Cleaning pending. Send photo as evidence."
   },
   "settings": {
     "title": "System Settings",

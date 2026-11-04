@@ -116,13 +116,14 @@
     "noLogs": "Nenhum log registrado ainda."
   },
   "cleaning": {
-    "title": "Controle de Limpeza Semanal",
+    "title": "Controle de Limpeza das RPTs",
     "week": "Semana",
-    "cleanedThisWeek": "Limpos esta semana",
+    "lastReset": "Zerado em",
+    "cleanedThisWeek": "Limpos no quadro",
     "cleaned": "Limpo",
     "pending": "Pendentes",
     "pendingCleaning": "Pendente",
-    "allClean": "Todas as repetidoras foram limpas esta semana!",
+    "allClean": "Todas as repetidoras foram limpas!",
     "noRepeaters": "Nenhuma repetidora encontrada. Cadastre repetidoras primeiro.",
     "uploadPhoto": "Tirar foto da limpeza",
     "changePhoto": "Trocar foto",
@@ -137,15 +138,15 @@
     "view": "Ver",
     "cleaningStatus": "Status da Limpeza",
     "lastCleaning": "Última Limpeza",
-    "thisWeek": "esta semana",
-    "noEvidence": "Nenhuma evidência enviada para esta semana.",
+    "thisWeek": "no quadro",
+    "noEvidence": "Nenhuma evidência registrada.",
     "locationHint": "A localização do dispositivo será usada para atualizar a repetidora no mapa.",
     "locationSaved": "Localização capturada! Repetidora atualizada no mapa.",
     "locationUnavailable": "Localização indisponível. Enviar sem atualizar o mapa.",
     "location": "Localização",
     "noLocation": "Não informada",
     "updatedAt": "Atualizado em",
-    "pendingDescription": "Limpeza pendente nesta semana. Envie a foto como evidência."
+    "pendingDescription": "Limpeza pendente. Envie a foto como evidência."
   },
   "settings": {
     "title": "Configurações do Sistema",

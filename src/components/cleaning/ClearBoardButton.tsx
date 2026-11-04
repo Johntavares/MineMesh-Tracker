@@ -10,7 +10,7 @@ export function ClearBoardButton() {
   const router = useRouter()
 
   const handleClear = async () => {
-    if (!confirm('Tem certeza que deseja zerar o quadro de limpeza? Todos os registros da semana atual serão apagados.')) {
+    if (!confirm('Tem certeza que deseja zerar o quadro de limpeza? Todas as repetidoras voltarão ao estado pendente.')) {
       return
     }
 

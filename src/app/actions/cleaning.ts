@@ -10,7 +10,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
-import { getWeekStart } from '@/lib/cleaning'
 import { updateRepeaterLocation } from './repeaters'
 import exifr from 'exifr'
 
@@ -75,7 +74,6 @@ export async function saveCleaning(formData: FormData) {
 
     const session = await getServerSession(authOptions)
     const isAdmin = session?.user?.role === 'ADMIN'
-    const weekStart = getWeekStart()
     const team = (formData.get('team') as string) || null
 
     const rawBrowserLat = formData.get('browserLat') as string | null
@@ -163,34 +161,40 @@ export async function saveCleaning(formData: FormData) {
       }
     }
 
-    const record = await prisma.cleaningRecord.upsert({
-      where: {
-        repeaterId_weekStart: {
-          repeaterId,
-          weekStart,
-        },
-      },
-      update: {
-        photoUrl,
-        notes,
-        latitude,
-        longitude,
-        team,
-        photoDate,
-        cleanedById: session?.user?.id || null,
-      },
-      create: {
-        repeaterId,
-        weekStart,
-        photoUrl,
-        notes,
-        latitude,
-        longitude,
-        team,
-        photoDate,
-        cleanedById: session?.user?.id || null,
-      },
+    const existing = await prisma.cleaningRecord.findFirst({
+      where: { repeaterId },
+      orderBy: { createdAt: 'desc' },
     })
+
+    let record
+    if (existing) {
+      record = await prisma.cleaningRecord.update({
+        where: { id: existing.id },
+        data: {
+          photoUrl,
+          notes,
+          latitude,
+          longitude,
+          team,
+          photoDate,
+          cleanedById: session?.user?.id || null,
+        },
+      })
+    } else {
+      record = await prisma.cleaningRecord.create({
+        data: {
+          repeaterId,
+          weekStart: new Date(),
+          photoUrl,
+          notes,
+          latitude,
+          longitude,
+          team,
+          photoDate,
+          cleanedById: session?.user?.id || null,
+        },
+      })
+    }
 
     await prisma.auditLog.create({
       data: {
@@ -200,7 +204,6 @@ export async function saveCleaning(formData: FormData) {
           photoUrl: photoUrl.startsWith('data:') ? `/api/cleaning/photo/${record.id}` : photoUrl,
           notes,
           team,
-          weekStart: weekStart.toISOString(),
           latitude,
           longitude,
         } as Prisma.InputJsonValue,
@@ -233,13 +236,7 @@ export async function clearCleaningBoard() {
       return { success: false, error: 'Acesso negado. Apenas administradores podem zerar o quadro.' }
     }
 
-    const weekStart = getWeekStart()
-
-    await prisma.cleaningRecord.deleteMany({
-      where: {
-        weekStart: weekStart,
-      },
-    })
+    await prisma.cleaningRecord.deleteMany({})
 
     await prisma.auditLog.create({
       data: {
