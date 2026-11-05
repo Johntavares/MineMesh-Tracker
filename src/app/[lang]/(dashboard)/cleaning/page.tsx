@@ -101,7 +101,7 @@ export default async function CleaningPage({
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-7xl px-2 sm:px-6 py-3 sm:py-5">
+      <div className="w-full px-2 sm:px-4 md:px-6 py-2.5 sm:py-4">
         <div className="flex items-center justify-between gap-3 mb-3 sm:mb-5">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">

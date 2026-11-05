@@ -219,8 +219,8 @@ export function CleaningTable({
         </div>
       </div>
 
-      {/* GRADE DE REPETIDORAS (Legível, com boa proporção e nítida para print) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-2">
+      {/* GRADE DE REPETIDORAS (Responsiva, preenchendo a tela inteira em todos os monitores) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 min-[1800px]:grid-cols-8 min-[2200px]:grid-cols-10 gap-2 sm:gap-2.5">
         {filteredRepeaters.map((repeater) => {
           const cleaned = isCleaned(repeater.id, repeater.currentCleaning)
           const isMaintenance = repeater.status === 'MAINTENANCE'
