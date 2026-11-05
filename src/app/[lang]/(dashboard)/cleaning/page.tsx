@@ -5,7 +5,7 @@ import { getDictionary } from '@/lib/i18n/server'
 import { isLocale } from '@/lib/i18n/config'
 import { notFound } from 'next/navigation'
 import { CleaningTable } from '@/components/cleaning/CleaningTable'
-import { Sparkles, Clock } from 'lucide-react'
+import { Sparkles, Clock, Wrench } from 'lucide-react'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { ClearBoardButton } from '@/components/cleaning/ClearBoardButton'
@@ -88,6 +88,7 @@ export default async function CleaningPage({
   })
 
   const cleanedCount = rows.filter((r) => r.currentCleaning).length
+  const maintenanceCount = rows.filter((r) => r.status === 'MAINTENANCE').length
   const total = rows.length
 
   const resetLabel = lastReset
@@ -113,14 +114,20 @@ export default async function CleaningPage({
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-emerald-600 text-white text-xs sm:text-sm font-semibold">
+            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-emerald-600 text-white text-xs sm:text-sm font-semibold" title={dict.cleaning.cleaned}>
               <Sparkles className="w-3.5 h-3.5" />
               {cleanedCount}/{total}
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-red-600 text-white text-xs sm:text-sm font-semibold">
+            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-red-600 text-white text-xs sm:text-sm font-semibold" title={dict.cleaning.pending}>
               <Clock className="w-3.5 h-3.5" />
               {total - cleanedCount}
             </span>
+            {maintenanceCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-amber-500 text-white text-xs sm:text-sm font-semibold" title={dict.cleaning.maintenanceTitle}>
+                <Wrench className="w-3.5 h-3.5" />
+                {maintenanceCount} {dict.cleaning.inMaintenance}
+              </span>
+            )}
             {userRole === 'ADMIN' && <ClearBoardButton />}
           </div>
         </div>

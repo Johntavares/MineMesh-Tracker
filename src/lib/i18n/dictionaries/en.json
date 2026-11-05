@@ -146,7 +146,18 @@
     "location": "Location",
     "noLocation": "Not provided",
     "updatedAt": "Updated at",
-    "pendingDescription": "Cleaning pending. Send photo as evidence."
+    "pendingDescription": "Cleaning pending. Send photo as evidence.",
+    "teamsTitle": "Cleaning Teams Active",
+    "noTeamsActive": "No teams have recorded cleanings on this board yet.",
+    "maintenanceTitle": "Repeaters in Maintenance",
+    "inMaintenance": "In Maintenance",
+    "noMaintenance": "No repeaters currently in maintenance.",
+    "filterAll": "All",
+    "filterPending": "Pending",
+    "filterCleaned": "Cleaned",
+    "filterMaintenance": "In Maintenance",
+    "filterAllTeams": "All teams",
+    "team": "Team"
   },
   "settings": {
     "title": "System Settings",

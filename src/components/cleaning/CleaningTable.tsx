@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from '@/lib/i18n/client'
 import { CleaningUploadForm } from './CleaningUploadForm'
 import {
@@ -12,6 +12,9 @@ import {
   ImageOff,
   MapPin,
   CalendarClock,
+  Wrench,
+  Filter,
+  Check,
 } from 'lucide-react'
 
 export type CleaningRepeaterRow = {
@@ -43,6 +46,8 @@ export function CleaningTable({
   const [selected, setSelected] = useState<CleaningRepeaterRow | null>(null)
   const [justCleaned, setJustCleaned] = useState<Record<string, boolean>>({})
   const [isEditing, setIsEditing] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'CLEANED' | 'MAINTENANCE'>('ALL')
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
 
   const isCleaned = (id: string, currentCleaning: CleaningRepeaterRow['currentCleaning']) =>
     Boolean(justCleaned[id] || currentCleaning)
@@ -53,16 +58,262 @@ export function CleaningTable({
     setSelected(null)
   }
 
+  // Estatísticas de equipes que realizaram limpeza no quadro atual
+  const teamsStats = useMemo(() => {
+    const map = new Map<string, { count: number; repeaters: string[] }>()
+    repeaters.forEach((r) => {
+      const cleaned = isCleaned(r.id, r.currentCleaning)
+      if (cleaned && r.currentCleaning) {
+        const teamName = r.currentCleaning.team?.trim() || (r.currentCleaning.cleanedBy ? `Op. ${r.currentCleaning.cleanedBy}` : 'Não especificada')
+        const current = map.get(teamName) || { count: 0, repeaters: [] }
+        current.count += 1
+        current.repeaters.push(r.code)
+        map.set(teamName, current)
+      }
+    })
+    return Array.from(map.entries())
+      .map(([name, data]) => ({ name, count: data.count, repeaters: data.repeaters }))
+      .sort((a, b) => b.count - a.count)
+  }, [repeaters, justCleaned])
+
+  // Repetidoras em manutenção
+  const maintenanceRepeaters = useMemo(() => {
+    return repeaters.filter((r) => r.status === 'MAINTENANCE')
+  }, [repeaters])
+
+  // Contagens para os filtros
+  const totalCount = repeaters.length
+  const cleanedCount = repeaters.filter((r) => isCleaned(r.id, r.currentCleaning)).length
+  const pendingCount = totalCount - cleanedCount
+  const maintenanceCount = maintenanceRepeaters.length
+
+  // Lista filtrada
+  const filteredRepeaters = useMemo(() => {
+    return repeaters.filter((r) => {
+      const cleaned = isCleaned(r.id, r.currentCleaning)
+
+      // Filtro de status
+      if (statusFilter === 'CLEANED' && !cleaned) return false
+      if (statusFilter === 'PENDING' && cleaned) return false
+      if (statusFilter === 'MAINTENANCE' && r.status !== 'MAINTENANCE') return false
+
+      // Filtro de equipe
+      if (selectedTeam) {
+        if (!cleaned || !r.currentCleaning) return false
+        const teamName = r.currentCleaning.team?.trim() || (r.currentCleaning.cleanedBy ? `Op. ${r.currentCleaning.cleanedBy}` : 'Não especificada')
+        if (teamName !== selectedTeam) return false
+      }
+
+      return true
+    })
+  }, [repeaters, justCleaned, statusFilter, selectedTeam])
+
   return (
-    <>
+    <div className="space-y-3 sm:space-y-4">
+      {/* PAINEL DE EQUIPES ATUANDO NA LIMPEZA */}
+      <div className="bg-white rounded-xl border border-slate-200/80 p-3 sm:p-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+              <Users className="w-4 h-4" />
+            </span>
+            <div>
+              <h2 className="text-xs sm:text-sm font-bold text-slate-800 leading-tight">
+                {t('cleaning.teamsTitle') || 'Equipes Atuando na Limpeza'}
+              </h2>
+              <p className="text-[11px] text-slate-500">
+                {teamsStats.length > 0
+                  ? `${teamsStats.length} ${teamsStats.length === 1 ? 'equipe com registros' : 'equipes com registros'} no quadro atual`
+                  : t('cleaning.noTeamsActive') || 'Nenhuma equipe registrou limpeza neste quadro ainda.'}
+              </p>
+            </div>
+          </div>
+          {selectedTeam && (
+            <button
+              onClick={() => setSelectedTeam(null)}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+            >
+              <X className="w-3.5 h-3.5" />
+              Limpar filtro ({selectedTeam})
+            </button>
+          )}
+        </div>
+
+        {teamsStats.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {teamsStats.map(({ name, count }) => {
+              const isSelected = selectedTeam === name
+              return (
+                <button
+                  key={name}
+                  onClick={() => setSelectedTeam(isSelected ? null : name)}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-300'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                  title={`Filtrar repetidoras limpas por ${name}`}
+                >
+                  <Users className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-blue-500'}`} />
+                  <span className="truncate max-w-[160px] sm:max-w-none">{name}</span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      isSelected
+                        ? 'bg-blue-800 text-white'
+                        : 'bg-white text-slate-700 border border-slate-200 shadow-2xs'
+                    }`}
+                  >
+                    {count} {count === 1 ? 'RPT' : 'RPTs'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="bg-slate-50 rounded-lg p-2.5 text-xs text-slate-400 border border-dashed border-slate-200 text-center">
+            {t('cleaning.noTeamsActive') || 'Nenhuma equipe registrou limpeza neste quadro ainda. As equipes aparecerão aqui conforme as evidências forem enviadas.'}
+          </div>
+        )}
+      </div>
+
+      {/* PAINEL DE REPETIDORAS EM MANUTENÇÃO */}
+      {maintenanceRepeaters.length > 0 && (
+        <div className="bg-amber-50/70 border border-amber-300/80 rounded-xl p-3 sm:p-4 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-amber-500 text-white shadow-2xs">
+                <Wrench className="w-4 h-4" />
+              </span>
+              <div>
+                <h2 className="text-xs sm:text-sm font-bold text-amber-950 leading-tight">
+                  {t('cleaning.maintenanceTitle') || 'Repetidoras em Manutenção'} ({maintenanceRepeaters.length})
+                </h2>
+                <p className="text-[11px] text-amber-800">
+                  Equipamentos retirados temporariamente da operação ou em reparo
+                </p>
+              </div>
+            </div>
+            {statusFilter !== 'MAINTENANCE' && (
+              <button
+                onClick={() => setStatusFilter('MAINTENANCE')}
+                className="text-xs font-semibold text-amber-800 hover:text-amber-950 underline flex items-center gap-1"
+              >
+                Ver apenas em manutenção
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {maintenanceRepeaters.map((r) => {
+              const cleaned = isCleaned(r.id, r.currentCleaning)
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => setSelected(r)}
+                  className="text-left bg-white rounded-lg p-2.5 border border-amber-300 hover:border-amber-500 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between group"
+                >
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="font-mono font-bold text-xs text-slate-900 group-hover:text-blue-600 truncate">
+                      {r.code}
+                    </span>
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${cleaned ? 'bg-emerald-500' : 'bg-red-500'}`}
+                      title={cleaned ? 'Limpeza Realizada' : 'Limpeza Pendente'}
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate mb-1">{r.name}</p>
+                  <div className="flex items-center justify-between text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded font-medium">
+                    <span className="flex items-center gap-1">
+                      <Wrench className="w-2.5 h-2.5" />
+                      Manutenção
+                    </span>
+                    <span className={cleaned ? 'text-emerald-700 font-bold' : 'text-red-700 font-bold'}>
+                      {cleaned ? 'Limpo' : 'Pendente'}
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* BARRA DE FILTROS DA GRADE */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+          <button
+            onClick={() => setStatusFilter('ALL')}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              statusFilter === 'ALL'
+                ? 'bg-slate-800 text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            {t('cleaning.filterAll') || 'Todas'} ({totalCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('PENDING')}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              statusFilter === 'PENDING'
+                ? 'bg-red-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            {t('cleaning.filterPending') || 'Pendentes'} ({pendingCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('CLEANED')}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+              statusFilter === 'CLEANED'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            {t('cleaning.filterCleaned') || 'Limpas'} ({cleanedCount})
+          </button>
+          {maintenanceCount > 0 && (
+            <button
+              onClick={() => setStatusFilter('MAINTENANCE')}
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                statusFilter === 'MAINTENANCE'
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'bg-white text-amber-700 hover:bg-amber-50 border border-amber-300'
+              }`}
+            >
+              <Wrench className="w-3 h-3" />
+              {t('cleaning.filterMaintenance') || 'Em Manutenção'} ({maintenanceCount})
+            </button>
+          )}
+        </div>
+
+        {selectedTeam && (
+          <div className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
+            <span className="font-medium">Equipe:</span>
+            <span className="font-bold truncate max-w-[140px]">{selectedTeam}</span>
+            <button
+              onClick={() => setSelectedTeam(null)}
+              className="p-0.5 hover:bg-blue-100 rounded-full"
+              title="Remover filtro"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* GRADE DE REPETIDORAS */}
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-7 gap-1 sm:gap-2">
-        {repeaters.map((repeater) => {
+        {filteredRepeaters.map((repeater) => {
           const cleaned = isCleaned(repeater.id, repeater.currentCleaning)
+          const isMaintenance = repeater.status === 'MAINTENANCE'
+
           return (
             <button
               key={repeater.id}
               onClick={() => setSelected(repeater)}
-              className="text-left bg-white rounded-md sm:rounded-lg overflow-hidden border border-slate-200 shadow-sm transition-transform hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`text-left bg-white rounded-md sm:rounded-lg overflow-hidden border shadow-sm transition-transform hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isMaintenance ? 'border-amber-400 ring-2 ring-amber-300/80 bg-amber-50/10' : 'border-slate-200'
+              }`}
             >
               <div className="relative h-14 sm:h-20 bg-slate-100">
                 {repeater.currentCleaning ? (
@@ -78,37 +329,65 @@ export function CleaningTable({
                     <span className="text-[9px] font-medium">{t('cleaning.noEvidence')}</span>
                   </div>
                 )}
+
+                {/* Badge de Manutenção sobreposto se estiver em manutenção */}
+                {isMaintenance && (
+                  <div className="absolute top-1 left-1 z-10 hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold text-[9px] shadow-sm uppercase tracking-wide">
+                    <Wrench className="w-2.5 h-2.5" />
+                    Manutenção
+                  </div>
+                )}
+
+                {/* Status mobile */}
                 <div
-                  className={`absolute inset-x-0 top-0 bottom-0 flex items-center justify-center text-[9px] sm:hidden font-bold uppercase tracking-wide text-white ${
+                  className={`absolute inset-x-0 top-0 bottom-0 flex flex-col items-center justify-center text-[9px] sm:hidden font-bold uppercase tracking-wide text-white ${
                     cleaned ? 'bg-emerald-600/90' : 'bg-red-600/90'
                   }`}
                 >
-                  {cleaned ? t('cleaning.cleaned') : t('cleaning.pending')}
+                  <span>{cleaned ? t('cleaning.cleaned') : t('cleaning.pending')}</span>
+                  {isMaintenance && (
+                    <span className="text-[8px] bg-amber-500 px-1 rounded mt-0.5 font-bold">MANUTENÇÃO</span>
+                  )}
                 </div>
               </div>
+
+              {/* Faixa de Status Desktop */}
               <div
-                className={`px-1 sm:px-2 py-0.5 sm:py-1 text-center text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-white ${
+                className={`px-1 sm:px-2 py-0.5 sm:py-1 text-center text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-white flex items-center justify-center gap-1 ${
                   cleaned ? 'bg-emerald-600' : 'bg-red-600'
                 }`}
               >
                 {cleaned ? t('cleaning.cleaned') : t('cleaning.pending')}
               </div>
+
+              {/* Faixa de aviso de manutenção quando aplicável */}
+              {isMaintenance && (
+                <div className="px-1 py-0.5 text-center text-[9px] font-bold uppercase tracking-wide bg-amber-500 text-white flex items-center justify-center gap-1">
+                  <Wrench className="w-2.5 h-2.5" />
+                  Em Manutenção
+                </div>
+              )}
+
               <div className="px-1 sm:px-2 py-1">
                 <p className="font-mono text-[9px] sm:text-[11px] font-bold text-slate-800 leading-tight truncate">
                   {repeater.code}
                 </p>
                 {cleaned && repeater.currentCleaning ? (
-                  <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-500 mt-1">
-                    <span className="truncate flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      {repeater.currentCleaning.team || 'N/A'}
-                    </span>
-                    <span className="truncate flex items-center gap-1">
-                      <CalendarClock className="w-3 h-3" />
-                      {repeater.currentCleaning.photoDate
-                        ? new Date(repeater.currentCleaning.photoDate).toLocaleDateString('pt-BR')
-                        : new Date(repeater.currentCleaning.createdAt).toLocaleDateString('pt-BR')}
-                    </span>
+                  <div className="space-y-0.5 mt-1">
+                    <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-blue-700 bg-blue-50 px-1 py-0.5 rounded truncate">
+                      <Users className="w-2.5 h-2.5 text-blue-500 shrink-0" />
+                      <span className="truncate">
+                        {repeater.currentCleaning.team || repeater.currentCleaning.cleanedBy || 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[9px] sm:text-[10px] text-slate-400 truncate">
+                      <CalendarClock className="w-2.5 h-2.5 shrink-0" />
+                      <span>
+                        {repeater.currentCleaning.photoDate
+                          ? new Date(repeater.currentCleaning.photoDate).toLocaleDateString('pt-BR')
+                          : new Date(repeater.currentCleaning.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
                   </div>
                 ) : (
                   <p className="text-[10px] sm:text-[11px] text-slate-400 truncate mt-1">
@@ -121,12 +400,26 @@ export function CleaningTable({
         })}
       </div>
 
-      {repeaters.length === 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 px-6 py-12 text-center text-slate-500">
-          {t('cleaning.noRepeaters')}
+      {filteredRepeaters.length === 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-6 py-12 text-center text-slate-500 space-y-2">
+          <p className="text-sm font-semibold text-slate-700">
+            Nenhuma repetidora encontrada com os filtros selecionados.
+          </p>
+          {(statusFilter !== 'ALL' || selectedTeam) && (
+            <button
+              onClick={() => {
+                setStatusFilter('ALL')
+                setSelectedTeam(null)
+              }}
+              className="text-xs text-blue-600 hover:underline font-medium"
+            >
+              Limpar todos os filtros
+            </button>
+          )}
         </div>
       )}
 
+      {/* MODAL DE DETALHES E EVIDÊNCIA */}
       {selected && (
         <div
           className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-6"
@@ -136,10 +429,18 @@ export function CleaningTable({
             className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-100 sticky top-0 bg-white">
-              <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-2 min-w-0">
                 <div className="min-w-0">
-                  <p className="font-semibold text-slate-900 truncate">{selected.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-slate-900 truncate">{selected.name}</p>
+                    {selected.status === 'MAINTENANCE' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                        <Wrench className="w-2.5 h-2.5" />
+                        Em Manutenção
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-400 font-mono truncate">
                     {selected.code} · {selected.model}
                   </p>
@@ -155,6 +456,19 @@ export function CleaningTable({
             </div>
 
             <div className="p-4 sm:p-6 space-y-4">
+              {/* Alerta de Manutenção no Modal */}
+              {selected.status === 'MAINTENANCE' && (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-xs text-amber-900 flex items-start gap-2.5">
+                  <Wrench className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Equipamento em Manutenção</p>
+                    <p className="text-amber-800 text-[11px] mt-0.5">
+                      Esta repetidora está registrada com status de manutenção no sistema.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {selected.currentCleaning ? (
                 <>
                   <a
@@ -182,7 +496,9 @@ export function CleaningTable({
                         {t('cleaning.cleaned')}
                       </p>
                       <p className="mt-1 text-xs text-slate-600">
-                        {selected.currentCleaning.photoDate ? new Date(selected.currentCleaning.photoDate).toLocaleString('pt-BR') : new Date(selected.currentCleaning.createdAt).toLocaleString('pt-BR')}
+                        {selected.currentCleaning.photoDate
+                          ? new Date(selected.currentCleaning.photoDate).toLocaleString('pt-BR')
+                          : new Date(selected.currentCleaning.createdAt).toLocaleString('pt-BR')}
                       </p>
                     </div>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
@@ -209,24 +525,36 @@ export function CleaningTable({
                     </div>
                   </div>
 
-                  <div className="text-sm text-slate-600 space-y-1.5">
-                    <p className="flex items-center gap-2">
-                      <CalendarClock className="w-4 h-4 text-slate-400" />
+                  {/* Informações da Equipe e Detalhes da Limpeza */}
+                  <div className="text-sm text-slate-600 space-y-2 bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+                    <div className="flex items-center justify-between text-xs pb-1.5 border-b border-slate-200">
+                      <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-blue-600" />
+                        Equipe Responsável:
+                      </span>
+                      <span className="font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded text-xs">
+                        {selected.currentCleaning.team || 'Não informada'}
+                      </span>
+                    </div>
+
+                    <p className="flex items-center gap-2 text-xs">
+                      <Users className="w-3.5 h-3.5 text-slate-400" />
+                      Enviado por: {selected.currentCleaning.cleanedBy || t('auth.system')}
+                    </p>
+
+                    <p className="flex items-center gap-2 text-xs">
+                      <CalendarClock className="w-3.5 h-3.5 text-slate-400" />
                       {t('cleaning.updatedAt')}:{' '}
                       {new Date(selected.currentCleaning.createdAt).toLocaleString('pt-BR')}
                     </p>
-                    <p className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-slate-400" />
-                      Equipe: {selected.currentCleaning.team || 'N/A'}
-                    </p>
-                    <p className="flex items-center gap-2 text-xs">
-                      <Users className="w-3 h-3 text-slate-300" />
-                      Enviado por: {selected.currentCleaning.cleanedBy || t('auth.system')}
-                    </p>
+
                     {selected.currentCleaning.notes && (
-                      <p className="text-slate-500 italic bg-slate-50 rounded-lg px-3 py-2">
-                        &ldquo;{selected.currentCleaning.notes}&rdquo;
-                      </p>
+                      <div className="pt-1">
+                        <p className="text-xs text-slate-400 mb-0.5">Observações:</p>
+                        <p className="text-xs text-slate-600 italic bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
+                          &ldquo;{selected.currentCleaning.notes}&rdquo;
+                        </p>
+                      </div>
                     )}
                   </div>
 
@@ -281,6 +609,6 @@ export function CleaningTable({
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

@@ -146,7 +146,18 @@
     "location": "Localização",
     "noLocation": "Não informada",
     "updatedAt": "Atualizado em",
-    "pendingDescription": "Limpeza pendente. Envie a foto como evidência."
+    "pendingDescription": "Limpeza pendente. Envie a foto como evidência.",
+    "teamsTitle": "Equipes Atuando na Limpeza",
+    "noTeamsActive": "Nenhuma equipe registrou limpeza neste quadro ainda.",
+    "maintenanceTitle": "Repetidoras em Manutenção",
+    "inMaintenance": "Em Manutenção",
+    "noMaintenance": "Nenhuma repetidora em manutenção.",
+    "filterAll": "Todas",
+    "filterPending": "Pendentes",
+    "filterCleaned": "Limpas",
+    "filterMaintenance": "Em Manutenção",
+    "filterAllTeams": "Todas as equipes",
+    "team": "Equipe"
   },
   "settings": {
     "title": "Configurações do Sistema",
